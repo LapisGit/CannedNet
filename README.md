@@ -1,7 +1,18 @@
 # CannedNet
 A RecNet API Reimplementation written in C#
 
-Work starting soon:tm: (i literally just made the repository, what do you want from me?)
+Lots of data and stuff like the photon servers listed here are Radium's servers, these can be changed safely, I'm just currently using it for testing.
+
+Doesn't really matter as with this current state you can't login fully
+
+Anyways, I'm hoping to organize the project a little more soon.
+
+TODO:
+
+- Setup SignalR
+- Get Notification server running
+- HOPEFULLY LOGIN FULLY
+- CDN server
 
 ## Why?
 
