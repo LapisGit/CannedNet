@@ -1,0 +1,110 @@
+﻿using System.Security.Cryptography;
+using System.Security.Claims;
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+
+namespace CannedNet;
+
+public class JwtTokenService
+{
+    private static readonly RSA _rsa = RSA.Create(2048);
+    private readonly RsaSecurityKey _securityKey;
+    private readonly SigningCredentials _signingCredentials;
+    private const string KeyId = "7C2F041398671515B0862CB23FAF95B03";
+
+    public JwtTokenService()
+    {
+        _securityKey = new RsaSecurityKey(_rsa) { KeyId = KeyId };
+        _signingCredentials = new SigningCredentials(_securityKey, SecurityAlgorithms.RsaSha256);
+    }
+
+    public string GenerateToken(string accountId, string platformId, string platform = "Steam")
+    {
+        var now = DateTime.UtcNow;
+        var exp = now.AddHours(1);
+
+        // theres gotta be some other better way to do this, but im fucking stupid so :shrug:
+        // if it works it works ig idk, someone can clean this up later or i will later
+        
+        var claims = new List<Claim>
+        {
+            new Claim("iss", "https://rr.lapis.codes"),
+            new Claim("nbf", ((DateTimeOffset)now).ToUnixTimeSeconds().ToString()),
+            new Claim("iat", ((DateTimeOffset)now).ToUnixTimeSeconds().ToString()),
+            new Claim("exp", ((DateTimeOffset)exp).ToUnixTimeSeconds().ToString()),
+            new Claim("aud", "https://rr.lapis.codes/resources"),
+            new Claim("amr", "cached_login"),
+            new Claim("client_id", "recroom"),
+            new Claim("sub", accountId),
+            new Claim("auth_time", ((DateTimeOffset)now).ToUnixTimeSeconds().ToString()),
+            new Claim("idp", "local"),
+            new Claim("platform", platform),
+            new Claim("platform_id", platformId),
+            new Claim("rn.ver", "20210129"),
+            new Claim("rn.plat", "0"),
+            new Claim("role", "gameClient"),
+            new Claim("jti", Guid.NewGuid().ToString("N").Substring(0, 32).ToUpper())
+        };
+
+        claims.Add(new Claim("scope", "profile"));
+        claims.Add(new Claim("scope", "rn"));
+        claims.Add(new Claim("scope", "rn.accounts"));
+        claims.Add(new Claim("scope", "rn.accounts.gc"));
+        claims.Add(new Claim("scope", "rn.api"));
+        claims.Add(new Claim("scope", "rn.chat"));
+        claims.Add(new Claim("scope", "rn.clubs"));
+        claims.Add(new Claim("scope", "rn.commerce"));
+        claims.Add(new Claim("scope", "rn.match.read"));
+        claims.Add(new Claim("scope", "rn.match.write"));
+        claims.Add(new Claim("scope", "rn.notify"));
+        claims.Add(new Claim("scope", "rn.rooms"));
+        claims.Add(new Claim("scope", "rn.storage"));
+        claims.Add(new Claim("scope", "offline_access"));
+
+        var identity = new ClaimsIdentity(claims, "jwt");
+
+        var handler = new JwtSecurityTokenHandler();
+        var token = handler.CreateJwtSecurityToken(
+            issuer: "https://auth.epicquest.live",
+            audience: "https://auth.epicquest.live/resources",
+            subject: identity,
+            notBefore: now,
+            issuedAt: now,
+            expires: exp,
+            signingCredentials: _signingCredentials);
+
+        return handler.WriteToken(token);
+    }
+
+    public string? ValidateAndGetAccountId(string token)
+    {
+        try
+        {
+            var handler = new JwtSecurityTokenHandler();
+            handler.InboundClaimTypeMap.Clear();
+            
+            var parameters = new TokenValidationParameters
+            {
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = _securityKey,
+                ValidateIssuer = true,
+                ValidIssuer = "https://auth.epicquest.live",
+                ValidateAudience = true,
+                ValidAudience = "https://auth.epicquest.live/resources",
+                ValidateLifetime = true,
+                ClockSkew = TimeSpan.Zero
+            };
+
+            var principal = handler.ValidateToken(token, parameters, out SecurityToken validatedToken);
+            
+            var accountIdClaim = principal.Claims.FirstOrDefault(c => c.Type == "sub");
+            
+            return accountIdClaim?.Value;
+        }
+        catch (Exception ex)
+        {
+            return null;
+        }
+    }
+}
+

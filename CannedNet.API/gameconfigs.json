@@ -1,0 +1,170 @@
+[
+  {
+    "Key": "Debug.Watchdog.AdditionalTraceFlagsForLoading",
+    "Value": "None"
+  },
+  {
+    "Key": "Debug.Watchdog.CorruptRoomDetectionProbability",
+    "Value": "0"
+  },
+  {
+    "Key": "Door.Creative.Query",
+    "Value": "#horror"
+  },
+  {
+    "Key": "Door.Creative.Title",
+    "Value": "HORROR"
+  },
+  {
+    "Key": "Door.Featured.Query",
+    "Value": ""
+  },
+  {
+    "Key": "Door.Featured.Title",
+    "Value": "Door"
+  },
+  {
+    "Key": "Door.Quests.Query",
+    "Value": "#quest #recroomoriginal"
+  },
+  {
+    "Key": "Door.Quests.Title",
+    "Value": "QUESTS"
+  },
+  {
+    "Key": "Door.Shooters.Query",
+    "Value": "#shooters"
+  },
+  {
+    "Key": "Door.Shooters.Title",
+    "Value": "SHOOTERS"
+  },
+  {
+    "Key": "Door.Sports.Query",
+    "Value": "#recroomoriginal #sports | #pvp #recroomoriginal "
+  },
+  {
+    "Key": "Door.Sports.Title",
+    "Value": "SPORTS & PVP"
+  },
+  {
+    "Key": "Door.StuntRunner.Query",
+    "Value": "#stuntrunner #community"
+  },
+  {
+    "Key": "Door.StuntRunner.Title",
+    "Value": "COMMUNITY"
+  },
+  {
+    "Key": "EnableRoomResetLogs",
+    "Value": "1"
+  },
+  {
+    "Key": "FentReactor.Enabled",
+    "Value": "True"
+  },
+  {
+    "Key": "Friends.PostGamePromptUnderFriendCount",
+    "Value": "10"
+  },
+  {
+    "Key": "Friends.SuggestFriendCodeOnFriendsScreenCount",
+    "Value": "25"
+  },
+  {
+    "Key": "Growth.ShouldPromptForCreatorEmail",
+    "Value": "true"
+  },
+  {
+    "Key": "loadingNetworkTimeout",
+    "Value": "180"
+  },
+  {
+    "Key": "Marquee",
+    "Value": "CannedNet"
+  },
+  {
+    "Key": "RAC:CurrentChallenge",
+    "Value": "{\"Challenge\":\"AQJCIIXfWaPue2PO75i5nM9nVCPTCbhjnQDUU94I+v//SrxkmVSoLfdEoY5Dp/BwBB+wgIh3kbNL5SPZk2KRQeDDVn+LC/EQoajdcxE59qSDYLM8G1bXued1vRv/Wlk0p5M+Ov2LrnNxS6r8uL2o7V3prYZzEOTrdculBU8rbq4=\",\"LastUpdated\":\"2026-01-15T01:18:34.167596Z\"}"
+  },
+  {
+    "Key": "Rendering.DisableSrpBatcher",
+    "Value": "true"
+  },
+  {
+    "Key": "Rewards.SelectionTimeout",
+    "Value": "1800"
+  },
+  {
+    "Key": "Rewards.UseRewardSelection",
+    "Value": "false"
+  },
+  {
+    "Key": "RoomDetails.PhotoRollEnabled",
+    "Value": "true"
+  },
+  {
+    "Key": "RoomScaleMotionCheatDetector.MaxAllowedAverageHmdSpeed",
+    "Value": "1024"
+  },
+  {
+    "Key": "RoomScaleMotionCheatDetector.MeasurementPeriodInSeconds",
+    "Value": "5"
+  },
+  {
+    "Key": "RoomScaleMotionCheatDetector.MinHmdSpeedAboveTriggerCount",
+    "Value": "1024"
+  },
+  {
+    "Key": "RoomScaleMotionCheatDetector.ShouldBootToDormWhenDetected.Oculus",
+    "Value": "false"
+  },
+  {
+    "Key": "RoomScaleMotionCheatDetector.ShouldBootToDormWhenDetected.Steam",
+    "Value": "false"
+  },
+  {
+    "Key": "RoomScaleMotionCheatDetector.TriggerHmdSpeed",
+    "Value": "1024"
+  },
+  {
+    "Key": "runningNetworkTimeout",
+    "Value": "30"
+  },
+  {
+    "Key": "Screens.ForceVerification",
+    "Value": "1"
+  },
+  {
+    "Key": "splitTestHardOverrides",
+    "Value": "GottaGoFastNUX_2020_09_04=Off;PlayMenuRRUI_2021_01_11=Off;RoomRecommendations_2020_05_06=On;"
+  },
+  {
+    "Key": "splitTestSegmentProbabilities",
+    "Value": ""
+  },
+  {
+    "Key": "splitTestSoftOverrides",
+    "Value": "FentReactorDebugGuiEnabled_2025_11_20=DeveloperOnly;"
+  },
+  {
+    "Key": "SynchronizedField.RemoveDefaultEntries",
+    "Value": "true"
+  },
+  {
+    "Key": "UGC.ScreenSharing.HorizontalResolution",
+    "Value": "360"
+  },
+  {
+    "Key": "UGC.ScreenSharing.ImageCompressionQuality",
+    "Value": "50"
+  },
+  {
+    "Key": "UGC.ScreenSharing.RefreshHz",
+    "Value": "15"
+  },
+  {
+    "Key": "VR.ForceVerification",
+    "Value": "1"
+  }
+]
