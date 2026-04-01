@@ -9,7 +9,7 @@ Anyways, I'm hoping to organize the project a little more soon.
 
 TODO:
 
-- Matchmaking
+- Matchmaking (theres a base response but it will only work for dormroom lol)
 - HOPEFULLY LOGIN FULLY
 - CDN server
 
