@@ -1,4 +1,4 @@
 <Solution>
   <Folder Name="/Solution Items/" />
-  <Project Path="CannedNet.API/CannedNet.API.csproj" />
+  <Project Path="CannedNet/CannedNet.csproj" />
 </Solution>

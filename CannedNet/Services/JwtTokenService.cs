@@ -65,8 +65,8 @@ public class JwtTokenService
 
         var handler = new JwtSecurityTokenHandler();
         var token = handler.CreateJwtSecurityToken(
-            issuer: "https://auth.epicquest.live",
-            audience: "https://auth.epicquest.live/resources",
+            issuer: "https://auth.lapis.codes",
+            audience: "https://auth.lapis.codes/resources",
             subject: identity,
             notBefore: now,
             issuedAt: now,
@@ -88,9 +88,9 @@ public class JwtTokenService
                 ValidateIssuerSigningKey = true,
                 IssuerSigningKey = _securityKey,
                 ValidateIssuer = true,
-                ValidIssuer = "https://auth.epicquest.live",
+                ValidIssuer = "https://auth.lapis.codes",
                 ValidateAudience = true,
-                ValidAudience = "https://auth.epicquest.live/resources",
+                ValidAudience = "https://auth.lapis.codes/resources",
                 ValidateLifetime = true,
                 ClockSkew = TimeSpan.Zero
             };
