@@ -52,15 +52,15 @@ public class MatchmakingService
                     location = "76d98498-60a1-430c-ab76-b54a29b7a163",
                     dataBlob = "",
                     eventId = 0,
-                    clubId=0,
+                    clubId = 0,
                     photonRegionId = "us",
-                    photonRoomId = "CannedNet_"+Guid.NewGuid(),
-                    name = "DormRoom",
+                    photonRoomId = Guid.NewGuid(),
+                    name = room,
                     maxCapacity = 4,
                     isFull = false,
                     isPrivate = true,
                     isInProgress = false,
-                    EncryptVoiceChat=false
+                    EncryptVoiceChat = false
                 }
             });
         });

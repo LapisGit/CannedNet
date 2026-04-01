@@ -374,17 +374,24 @@ public class APIService
         app.MapGet("/api/challenge/v2/getCurrent", async (HttpRequest request, AppDbContext db) =>
         {
             var json = File.ReadAllText("JSON/weeklychallenge.json");
-            return Results.Content(json, "application/json");
+            //return Results.Content(json, "application/json");
+            return "{}";
         });
         app.MapGet("/roomserver/rooms/createdby/me", async (HttpRequest request, AppDbContext db) =>
         {
             // TODO ADD FUNCTIONALITY
-            var json = File.ReadAllText("JSON/weeklychallenge.json");
+            var json = File.ReadAllText("JSON/ownedrooms.json");
+            return Results.Content(json, "application/json");
+        });
+        app.MapGet("/roomserver/rooms/{id}", async (HttpRequest request, AppDbContext db, string id) =>
+        {
+            // TODO ADD FUNCTIONALITY
+            var json = File.ReadAllText("JSON/ownedrooms.json");
             return Results.Content(json, "application/json");
         });
         app.MapGet("/api/images/v2/named", async (HttpRequest request, AppDbContext db) =>
         {
-            var json = File.ReadAllText("JSON/weeklychallenge.json");
+            var json = File.ReadAllText("JSON/namedimages.json");
             return Results.Content(json, "application/json");
         });
     }

@@ -3,7 +3,7 @@
   "API": "https://api.lapis.codes",
   "WWW": "https://www.lapis.codes",
   "Notifications": "https://notify.lapis.codes",
-  "Images": "https://img.lapis.codes",
+  "Images": "http://localhost:5008",
   "CDN": "https://cdn.lapis.codes",
   "Commerce": "https://commerce.lapis.codes",
   "Matchmaking": "https://match.lapis.codes",
