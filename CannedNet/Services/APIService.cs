@@ -198,6 +198,12 @@ public class APIService
         
         app.MapGet("/api/PlayerReporting/v1/moderationBlockDetails", () => 
             Results.Content("{\"ReportCategory\":0,\"Duration\":0,\"GameSessionId\":0,\"IsHostKick\":false,\"Message\":\"\",\"PlayerIdReporter\":null,\"IsBan\":false}", "application/json"));
+        
+        app.MapGet("/api/PlayerReporting/v1/voteToKickReasons", async (HttpRequest request, AppDbContext db) =>
+        {
+            var json = File.ReadAllText("JSON/vtkreasons.json");
+            return Results.Content(json, "application/json");
+        });
 
         app.MapGet("/api/settings/v2" +
                    "", async (HttpRequest request, AppDbContext db) =>
@@ -256,14 +262,18 @@ public class APIService
                 if (single != null) settings.Add(single);
             }
             
+            settings = settings.Where(s => !string.IsNullOrEmpty(s.Key)).ToList();
+
             if (!settings.Any())
-                return Results.BadRequest("No settings provided");
+                return Results.Ok();
             
             db.PlayerSettings.RemoveRange(db.PlayerSettings.Where(s => s.PlayerId == id));
             
             foreach (var setting in settings)
             {
                 setting.PlayerId = id;
+                setting.Key = setting.Key ?? "";
+                setting.Value = setting.Value ?? "";
                 db.PlayerSettings.Add(setting);
             }
             
@@ -277,6 +287,56 @@ public class APIService
             return "[]";
         });
         app.MapGet("/api/consumables/v2/getUnlocked", async (HttpRequest request, AppDbContext db) =>
+        {
+            // TODO ADD FUNCTIONALITY
+            return "[]";
+        });
+        app.MapGet("/api/objectives/v1/myprogress", async (HttpRequest request, AppDbContext db) =>
+        {
+            // TODO ADD FUNCTIONALITY
+            var json = File.ReadAllText("JSON/tempmyprogress.json");
+            return Results.Content(json, "application/json");
+        });
+        app.MapGet("/api/avatar/v2/gifts", async (HttpRequest request, AppDbContext db) =>
+        {
+            // TODO ADD FUNCTIONALITY
+            return "[]";
+        });
+        app.MapGet("/api/gamerewards/v1/pending", async (HttpRequest request, AppDbContext db) =>
+        {
+            // TODO ADD FUNCTIONALITY
+            return "[]";
+        });
+        app.MapGet("/api/communityboard/v2/current", async (HttpRequest request, AppDbContext db) =>
+        {
+            var json = File.ReadAllText("JSON/communityboard.json");
+            return Results.Content(json, "application/json");
+        });
+        app.MapGet("/api/playerevents/v1/all", async (HttpRequest request, AppDbContext db) =>
+        {
+            // TODO ADD FUNCTIONALITY
+            return "[]";
+        });
+        app.MapPost("/api/CampusCard/v1/UpdateAndGetSubscription", async (HttpRequest request, AppDbContext db) =>
+        {
+            // TODO ADD FUNCTIONALITY
+            return "{\"subscription\":null,\"platformAccountSubscribedPlayerId\":null}";
+        });
+        app.MapGet("/api/storefronts/v4/balance/2", async (HttpRequest request, AppDbContext db) =>
+        {
+            // TODO ADD FUNCTIONALITY
+            return "[{\"Balance\":99999,\"CurrencyType\":2,\"BalanceType\":-1,\"Platform\":-1}]";
+        });
+        app.MapGet("/api/storefronts/v1/p2p/betaEnabled", async (HttpRequest request, AppDbContext db) =>
+        {
+            return "true";
+        });
+        app.MapGet("/api/announcement/v1/get", async (HttpRequest request, AppDbContext db) =>
+        {
+            var json = File.ReadAllText("JSON/announcements.json");
+            return Results.Content(json, "application/json");
+        });
+        app.MapGet("/api/roomkeys/v1/mine", async (HttpRequest request, AppDbContext db) =>
         {
             // TODO ADD FUNCTIONALITY
             return "[]";

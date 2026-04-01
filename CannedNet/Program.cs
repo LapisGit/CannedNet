@@ -8,6 +8,12 @@ foreach (var service in Services.All)
 {
     var builder = WebApplication.CreateBuilder();
     
+    builder.Services.AddLogging(logging =>
+    {
+        logging.AddConsole();
+        logging.SetMinimumLevel(LogLevel.Debug);
+    });
+    
     service.ConfigureBuilder(builder);
     builder.WebHost.UseUrls($"http://*:{service.Port}");
     builder.Configuration.AddJsonFile($"AppConfigs/appsettings.{service.Name}.json", optional: true, reloadOnChange: true);
@@ -20,6 +26,9 @@ scope.ServiceProvider.GetRequiredService<CannedNet.Data.AppDbContext>().Database
 var jwtService = scope.ServiceProvider.GetRequiredService<JwtTokenService>();
 
 foreach (var (app, service) in apps)
+{
     service.MapEndpoints(app, jwtService);
+    app.UseRequestLogging();
+}
 
 await Task.WhenAll(apps.Select(t => t.App.RunAsync()));

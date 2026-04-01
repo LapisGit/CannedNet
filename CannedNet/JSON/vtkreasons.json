@@ -1,0 +1,58 @@
+[
+  {
+    "reason": "Discriminatory language",
+    "reportCategory": 102
+  },
+  {
+    "reason": "Discriminatory behavior",
+    "reportCategory": 102
+  },
+  {
+    "reason": "Threats or encouraging suicide",
+    "reportCategory": 102
+  },
+  {
+    "reason": "Toxic behavior",
+    "reportCategory": 102
+  },
+  {
+    "reason": "Sexual behavior in public",
+    "reportCategory": 101
+  },
+  {
+    "reason": "Sexual language in public",
+    "reportCategory": 101
+  },
+  {
+    "reason": "Non-consensual sexual behavior",
+    "reportCategory": 101
+  },
+  {
+    "reason": "Player in walls or floor",
+    "reportCategory": 103
+  },
+  {
+    "reason": "Friendly fire",
+    "reportCategory": 103
+  },
+  {
+    "reason": "Microphone spam",
+    "reportCategory": 103
+  },
+  {
+    "reason": "Abusing bugs or exploits",
+    "reportCategory": 103
+  },
+  {
+    "reason": "Spawn camping",
+    "reportCategory": 103
+  },
+  {
+    "reason": "Inactive in games (AFK)",
+    "reportCategory": 6
+  },
+  {
+    "reason": "Not following game rules",
+    "reportCategory": 6
+  }
+]
