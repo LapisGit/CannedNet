@@ -170,6 +170,31 @@ public class APIService
             await db.SaveChangesAsync();
             return Results.Ok(avatar);
         });
+
+        app.MapGet("/api/avatar/v3/saved", async (HttpRequest request, AppDbContext db) =>
+        {
+            var authHeader = request.Headers.Authorization.ToString();
+    
+            if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                return Results.Unauthorized();
+
+            var token = authHeader.Substring("Bearer ".Length);
+            var accountId = jwtService.ValidateAndGetAccountId(token);
+
+            if (string.IsNullOrEmpty(accountId))
+                return Results.Unauthorized();
+
+            if (!int.TryParse(accountId.AsSpan(), out var id))
+                return Results.Unauthorized();
+            
+            request.EnableBuffering();
+            
+            var items = await db.SavedOutfits
+                .Where(i => i.OwnerAccountId == id)
+                .ToListAsync();
+            
+            return Results.Json(items);
+        });
         
         app.MapGet("/api/PlayerReporting/v1/moderationBlockDetails", () => 
             Results.Content("{\"ReportCategory\":0,\"Duration\":0,\"GameSessionId\":0,\"IsHostKick\":false,\"Message\":\"\",\"PlayerIdReporter\":null,\"IsBan\":false}", "application/json"));
@@ -244,6 +269,17 @@ public class APIService
             
             await db.SaveChangesAsync();
             return Results.Ok();
+        });
+
+        app.MapGet("/api/equipment/v2/getUnlocked", async (HttpRequest request, AppDbContext db) =>
+        {
+            // TODO ADD FUNCTIONALITY
+            return "[]";
+        });
+        app.MapGet("/api/consumables/v2/getUnlocked", async (HttpRequest request, AppDbContext db) =>
+        {
+            // TODO ADD FUNCTIONALITY
+            return "[]";
         });
     }
 }

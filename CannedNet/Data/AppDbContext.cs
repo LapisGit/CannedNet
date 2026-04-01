@@ -14,6 +14,7 @@ public class AppDbContext : DbContext
     public DbSet<PlayerSetting> PlayerSettings { get; set; }
     public DbSet<AvatarItem> AvatarItems { get; set; }
     public DbSet<PlayerAvatar> PlayerAvatars { get; set; }
+    public DbSet<SavedOutfit> SavedOutfits { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -79,6 +80,16 @@ public class AppDbContext : DbContext
             entity.Property(e => e.OwnerAccountId).IsRequired();
             entity.HasIndex(e => e.OwnerAccountId).IsUnique();
             entity.ToTable("player_avatars");
+        });
+        
+        // saved_outfits
+        modelBuilder.Entity<SavedOutfit>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.OwnerAccountId).IsRequired();
+            entity.HasIndex(e => e.OwnerAccountId).IsUnique();
+            entity.ToTable("saved_outfits");
         });
     }
 }
