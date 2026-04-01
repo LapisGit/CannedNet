@@ -9,8 +9,7 @@ Anyways, I'm hoping to organize the project a little more soon.
 
 TODO:
 
-- Setup SignalR
-- Get Notification server running
+- Matchmaking
 - HOPEFULLY LOGIN FULLY
 - CDN server
 
