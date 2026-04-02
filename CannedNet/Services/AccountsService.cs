@@ -78,6 +78,29 @@ public class AccountsService
             return Results.Json(accounts);
         });
         
+        app.MapGet("/account/{id}", (HttpRequest request, string id) =>
+        {
+            var accounts = new Account();
+            
+            if (int.TryParse(id, out var accountId))
+            {
+                accounts = new Account
+                {
+                    AccountId = accountId,
+                    ProfileImage = "hdqeamlcmatc6qzoi2ybgf0ddijjcf.jpg",
+                    IsJunior = false,
+                    Platforms = 0,
+                    PersonalPronouns = 0,
+                    IdentityFlags = 0,
+                    Username = $"Player{accountId}",
+                    DisplayName = $"Player{accountId}",
+                    CreatedAt = DateTime.UtcNow
+                };
+            }
+
+            return Results.Json(accounts);
+        });
+        
         app.MapPost("/account/create", async (HttpRequest httpRequest, AppDbContext db) =>
         {
             int platform = 0;

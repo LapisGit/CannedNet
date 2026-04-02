@@ -13,7 +13,7 @@
   "Accounts": "http://localhost:5005",
   "Link": "https://link.lapis.codes",
   "RoomComments": "https://roomcomments.lapis.codes",
-  "Clubs": "https://clubs.lapis.codes",
+  "Clubs": "http://localhost:5009",
   "Rooms": "https://rooms.lapis.codes",
   "PlatformNotifications": "https://api.lapis.codes",
   "Moderation": "https://api.lapis.codes",

@@ -8,8 +8,8 @@ public class PlayerSetting
     [JsonPropertyName("playerId")]
     public int PlayerId { get; set; }
     [JsonPropertyName("key")]
-    public string Key { get; set; }
+    public string Key { get; set; } = "";
     [JsonPropertyName("value")]
-    public string Value { get; set; }
+    public string Value { get; set; } = "";
 }
 

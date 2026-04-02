@@ -137,7 +137,7 @@
   },
   {
     "Key": "splitTestHardOverrides",
-    "Value": "GottaGoFastNUX_2020_09_04=Off;PlayMenuRRUI_2021_01_11=Off;RoomRecommendations_2020_05_06=On;"
+    "Value": ""
   },
   {
     "Key": "splitTestSegmentProbabilities",
@@ -145,7 +145,7 @@
   },
   {
     "Key": "splitTestSoftOverrides",
-    "Value": "FentReactorDebugGuiEnabled_2025_11_20=DeveloperOnly;"
+    "Value": ""
   },
   {
     "Key": "SynchronizedField.RemoveDefaultEntries",

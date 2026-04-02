@@ -1,13 +1,8 @@
 {
-  "RealtimeAppId": "038c1828-7979-4735-8d30-50c3276c30a7",
-  "VoiceAppId": "f6a30374-c1ce-4ea5-8919-45bc29203bc9",
-  "ChatAppId": "f6a30374-c1ce-4ea5-8919-45bc29203bc9",
+  "RealtimeAppId": "c74d22b7-6665-41cf-9ce8-fc70b625caa6",
+  "VoiceAppId": "f7adbf03-edae-4a7d-bb4b-9e06de75bd96",
+  "ChatAppId": "4538ca46-903b-48d9-bf33-247ea468a29d",
   "HostingOption": 1,
   "Protocol": 0,
-  "ServerAddress": "127.0.0.1",
-  "ServerPort": -1,
-  "VoiceServerPort": -1,
-  "ChatServerPort": -1,
-  "NetworkLogging": 0,
-  "PunLogging": 0
+  "FixedRegion": "us"
 }

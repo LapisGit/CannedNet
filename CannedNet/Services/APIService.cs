@@ -1,6 +1,8 @@
 using CannedNet;
 using CannedNet.Data;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace CannedNet.Services;
 
@@ -35,7 +37,7 @@ public class APIService
 
         app.MapPost("/api/playerReputation/v1/bulk", async (HttpRequest httpRequest, AppDbContext db) =>
         {
-            var ids = await ParseFormIds(httpRequest);
+            /*var ids = await ParseFormIds(httpRequest);
             
             if (!ids.Any())
                 return Results.Json(new List<object>());
@@ -53,7 +55,11 @@ public class APIService
                 SelectedCheer = (object?)null
             }).ToList();
             
-            return Results.Json(reputations);
+            return Results.Json(reputations);*/
+
+            // TODO: implement real endpoint from grabbing from db
+            var json = File.ReadAllText("JSON/bulkprogression.json");
+            return Results.Content(json, "application/json");
         });
 
         app.MapPost("/api/players/v1/progression/bulk", async (HttpRequest httpRequest, AppDbContext db) =>
@@ -142,7 +148,13 @@ public class APIService
                 await db.SaveChangesAsync();
             }
             
-            return Results.Json(avatar);
+            return Results.Json(new
+            {
+                OutfitSelections = avatar.OutfitSelections,
+                FaceFeatures = avatar.FaceFeatures,
+                SkinColor = avatar.SkinColor,
+                HairColor = avatar.HairColor
+            });
         });
 
         app.MapPost("/api/avatar/v2/set", async (HttpRequest request, AppDbContext db) =>
@@ -239,6 +251,47 @@ public class APIService
             var settings = await db.PlayerSettings
                 .Where(s => s.PlayerId == id)
                 .ToListAsync();
+            
+            if (!settings.Any())
+            {
+                var defaults = new List<PlayerSetting>
+                {
+                    new() { PlayerId = id, Key = "Recroom.OOBE", Value = "77" },
+                    new() { PlayerId = id, Key = "SplitTestAssignedSegments", Value = "1|{\"SplitTesting+PhotonMaxDatagrams_2021_01_11\":\"Off\",\"SplitTesting+Curated_Rooms_2020_08_06\":\"Off\",\"SplitTesting+RoomRecommendationsType_2020_08_14\":\"Aug14MinVisitors35000\"}" },
+                    new() { PlayerId = id, Key = "PlayerSessionCount", Value = "13" },
+                    new() { PlayerId = id, Key = "TUTORIAL_COMPLETE_MASK", Value = "11" },
+                    new() { PlayerId = id, Key = "BACKPACK_FAVORITE_TOOL", Value = "1" },
+                    new() { PlayerId = id, Key = "VoiceChat", Value = "2" },
+                    new() { PlayerId = id, Key = "VRAUTOSPRINT", Value = "1" },
+                    new() { PlayerId = id, Key = "VR_MOVEMENT_MODE", Value = "0" },
+                    new() { PlayerId = id, Key = "COMFORT_SPRINT", Value = "0" },
+                    new() { PlayerId = id, Key = "COMFORT_WALK", Value = "0" },
+                    new() { PlayerId = id, Key = "COMFORT_VEHICLES", Value = "0" },
+                    new() { PlayerId = id, Key = "COMFORT_FLY", Value = "0" },
+                    new() { PlayerId = id, Key = "COMFORT_ROTATE", Value = "0" },
+                    new() { PlayerId = id, Key = "COMFORT_FORCES", Value = "0" },
+                    new() { PlayerId = id, Key = "COMFORT_FALL", Value = "0" },
+                    new() { PlayerId = id, Key = "COMFORT_TELEPORT", Value = "0" },
+                    new() { PlayerId = id, Key = "ROTATE_IN_PLACE_ENABLED", Value = "1" },
+                    new() { PlayerId = id, Key = "ROTATION_INCREMENT", Value = "2" },
+                    new() { PlayerId = id, Key = "CONTINUOUS_ROTATION_MODE", Value = "1" },
+                    new() { PlayerId = id, Key = "DONT_LOCK_TOOLS_TO_HAND", Value = "0" },
+                    new() { PlayerId = id, Key = "QualitySettings", Value = "2" },
+                    new() { PlayerId = id, Key = "TeleportBuffer", Value = "0" },
+                    new() { PlayerId = id, Key = "IgnoreBuffer", Value = "1" },
+                    new() { PlayerId = id, Key = "FIRST_TIME_IN_FLAGS", Value = "0" },
+                    new() { PlayerId = id, Key = "ShowRoomCenter", Value = "1" },
+                    new() { PlayerId = id, Key = "USER_TRACKING", Value = "1" },
+                    new() { PlayerId = id, Key = "STABILIZE_HANDS", Value = "0" },
+                    new() { PlayerId = id, Key = "MakerPen_SnappingMode", Value = "2" },
+                    new() { PlayerId = id, Key = "Recroom.ChallengeMap", Value = "17" },
+                    new() { PlayerId = id, Key = "VoiceFilter2", Value = "1" },
+                    new() { PlayerId = id, Key = "SFX_VOLUME_PERCENT_PREF", Value = "1" },
+                };
+                db.PlayerSettings.AddRange(defaults);
+                await db.SaveChangesAsync();
+                settings = defaults;
+            }
     
             return Results.Json(settings);
         });
@@ -263,6 +316,8 @@ public class APIService
             request.Body.Position = 0;
             using var reader = new StreamReader(request.Body);
             var body = await reader.ReadToEndAsync();
+            
+            Console.WriteLine($"Settings request body: {body}");
             
             var settings = new List<PlayerSetting>();
             
@@ -374,8 +429,8 @@ public class APIService
         app.MapGet("/api/challenge/v2/getCurrent", async (HttpRequest request, AppDbContext db) =>
         {
             var json = File.ReadAllText("JSON/weeklychallenge.json");
-            //return Results.Content(json, "application/json");
-            return "{}";
+            return Results.Content(json, "application/json");
+            //return "{}";
         });
         app.MapGet("/roomserver/rooms/createdby/me", async (HttpRequest request, AppDbContext db) =>
         {
@@ -385,9 +440,20 @@ public class APIService
         });
         app.MapGet("/roomserver/rooms/{id}", async (HttpRequest request, AppDbContext db, string id) =>
         {
-            // TODO ADD FUNCTIONALITY
             var json = File.ReadAllText("JSON/ownedrooms.json");
-            return Results.Content(json, "application/json");
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            if (root.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var room in root.EnumerateArray())
+                {
+                    if (room.TryGetProperty("RoomId", out var roomIdProp) && roomIdProp.TryGetInt32(out var roomId) && roomId.ToString() == id)
+                    {
+                        return Results.Content(room.GetRawText(), "application/json");
+                    }
+                }
+            }
+            return Results.NotFound();
         });
         app.MapGet("/api/images/v2/named", async (HttpRequest request, AppDbContext db) =>
         {

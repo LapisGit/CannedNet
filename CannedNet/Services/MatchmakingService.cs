@@ -14,6 +14,7 @@ public class MatchmakingService
         
         app.MapGet("/player", (HttpRequest request) =>
         {
+            /*
             var id = request.Query["id"];
             var accounts = new List<Account>();
 
@@ -33,7 +34,10 @@ public class MatchmakingService
                 });
             }
 
-            return Results.Json(accounts);
+            return Results.Json(accounts);*/
+        
+            var json = File.ReadAllText("JSON/getplayer.json");
+            return Results.Content(json, "application/json");
         });
 
         app.MapPost("/goto/room/{room}", (HttpRequest request, string room) =>
@@ -53,9 +57,39 @@ public class MatchmakingService
                     dataBlob = "",
                     eventId = 0,
                     clubId = 0,
+                    roomCode = "",
                     photonRegionId = "us",
                     photonRoomId = Guid.NewGuid(),
                     name = room,
+                    maxCapacity = 4,
+                    isFull = false,
+                    isPrivate = true,
+                    isInProgress = false,
+                    EncryptVoiceChat = false
+                }
+            });
+        });
+        
+        app.MapPost("/goto/none", (HttpRequest request) =>
+        {
+            // dormroom location id : 76d98498-60a1-430c-ab76-b54a29b7a163
+            
+            return Results.Json(new
+            {
+                errorCode = 0,
+                roomInstance = new
+                {
+                    roomInstanceId = 1,
+                    roomId = 1,
+                    subRoomId = 1,
+                    roomInstanceType = 2,
+                    location = "76d98498-60a1-430c-ab76-b54a29b7a163",
+                    dataBlob = "",
+                    eventId = 0,
+                    clubId = 0,
+                    photonRegionId = "us",
+                    photonRoomId = Guid.NewGuid(),
+                    name = "DormRoom",
                     maxCapacity = 4,
                     isFull = false,
                     isPrivate = true,
