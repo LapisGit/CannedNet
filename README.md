@@ -7,7 +7,7 @@ Lots of data and stuff like the photon servers listed here are Radium's servers,
 
 TODO:
 
-- Matchmaking (theres a base response but it will only work for dormroom lol)
+- Matchmaking (almost done, i have the base in for it but you just cant go to other rooms from the dormroom right now for some reason, im actively looking into this.)
 - CDN server
 - Play tab + other rooms
 - Clubs Server
