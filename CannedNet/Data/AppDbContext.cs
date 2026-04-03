@@ -16,6 +16,12 @@ public class AppDbContext : DbContext
     public DbSet<PlayerAvatar> PlayerAvatars { get; set; }
     public DbSet<SavedOutfit> SavedOutfits { get; set; }
     public DbSet<RoomInstance> RoomInstances { get; set; }
+    public DbSet<Room> Rooms { get; set; }
+    public DbSet<SubRoom> SubRooms { get; set; }
+    public DbSet<LoadScreen> LoadScreens { get; set; }
+    public DbSet<PromoImage> PromoImages { get; set; }
+    public DbSet<PromoExternalContent> PromoExternalContents { get; set; }
+    public DbSet<RoomRole> RoomRoles { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -101,6 +107,66 @@ public class AppDbContext : DbContext
             entity.Property(e => e.OwnerAccountId).IsRequired();
             entity.HasIndex(e => e.OwnerAccountId).IsUnique();
             entity.ToTable("room_instances");
+        });
+
+        // rooms
+        modelBuilder.Entity<Room>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.Name).IsRequired();
+            entity.HasIndex(e => e.CreatorAccountId);
+            entity.ToTable("rooms");
+        });
+
+        // sub_rooms
+        modelBuilder.Entity<SubRoom>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.RoomId).IsRequired();
+            entity.HasIndex(e => e.RoomId);
+            entity.ToTable("sub_rooms");
+        });
+
+        // load_screens
+        modelBuilder.Entity<LoadScreen>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.RoomId).IsRequired();
+            entity.HasIndex(e => e.RoomId);
+            entity.ToTable("load_screens");
+        });
+
+        // promo_images
+        modelBuilder.Entity<PromoImage>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.RoomId).IsRequired();
+            entity.HasIndex(e => e.RoomId);
+            entity.ToTable("promo_images");
+        });
+
+        // promo_external_contents
+        modelBuilder.Entity<PromoExternalContent>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.RoomId).IsRequired();
+            entity.HasIndex(e => e.RoomId);
+            entity.ToTable("promo_external_contents");
+        });
+
+        // room_roles
+        modelBuilder.Entity<RoomRole>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.RoomId).IsRequired();
+            entity.HasIndex(e => e.RoomId);
+            entity.ToTable("room_roles");
         });
     }
 }

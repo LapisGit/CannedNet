@@ -15,21 +15,21 @@ public class RoomInstance
     [JsonPropertyName("roomInstanceType")]
     public int roomInstanceType { get; set; }
     [JsonPropertyName("location")]
-    public string location { get; set; }
+    public string location { get; set; } = "";
     [JsonPropertyName("dataBlob")]
-    public string dataBlob { get; set; }
+    public string dataBlob { get; set; } = "";
     [JsonPropertyName("eventId")]
     public int eventId { get; set; }
     [JsonPropertyName("clubId")]
     public int clubId { get; set; }
     [JsonPropertyName("roomCode")]
-    public string roomCode { get; set; }
+    public string roomCode { get; set; } = "";
     [JsonPropertyName("photonRegionId")]
-    public string photonRegionId { get; set; }
+    public string photonRegionId { get; set; } = "";
     [JsonPropertyName("photonRoomId")]
-    public string photonRoomId { get; set; }
+    public string photonRoomId { get; set; } = "";
     [JsonPropertyName("name")]
-    public string name { get; set; }
+    public string name { get; set; } = "";
     [JsonPropertyName("maxCapacity")]
     public int maxCapacity { get; set; }
     [JsonPropertyName("isFull")]

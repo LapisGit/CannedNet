@@ -28,7 +28,7 @@ public class AuthService
             return Results.Json(logins.Any() ? logins : new List<object>());
         });
         
-        app.MapPost("/connect/token", async (HttpRequest httpRequest) =>
+        app.MapPost("/connect/token", async (HttpRequest httpRequest, AppDbContext db) =>
         {
             string accountId = "";
             string platformId = "";
@@ -65,6 +65,16 @@ public class AuthService
             }
 
             var accessToken = jwtService.GenerateToken(accountId, platformId, platform);
+            
+            if (!string.IsNullOrEmpty(accountId) && int.TryParse(accountId, out var id))
+            {
+                var roomInstance = await db.RoomInstances.FirstOrDefaultAsync(r => r.OwnerAccountId == id);
+                if (roomInstance != null)
+                {
+                    db.RoomInstances.Remove(roomInstance);
+                    await db.SaveChangesAsync();
+                }
+            }
 
             return Results.Json(new
             {

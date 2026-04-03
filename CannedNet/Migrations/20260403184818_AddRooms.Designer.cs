@@ -3,6 +3,7 @@ using System;
 using CannedNet.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace CannedNet.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260403184818_AddRooms")]
+    partial class AddRooms
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -149,38 +152,6 @@ namespace CannedNet.Migrations
                     b.ToTable("cached_logins", (string)null);
                 });
 
-            modelBuilder.Entity("CannedNet.LoadScreen", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("ImageUrl")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasAnnotation("Relational:JsonPropertyName", "imageUrl");
-
-                    b.Property<bool>("IsThumbnail")
-                        .HasColumnType("boolean")
-                        .HasAnnotation("Relational:JsonPropertyName", "isThumbnail");
-
-                    b.Property<int>("RoomId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Tooltip")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasAnnotation("Relational:JsonPropertyName", "tooltip");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("RoomId");
-
-                    b.ToTable("load_screens", (string)null);
-                });
-
             modelBuilder.Entity("CannedNet.PlayerAvatar", b =>
                 {
                     b.Property<int>("Id")
@@ -276,70 +247,6 @@ namespace CannedNet.Migrations
                         .IsUnique();
 
                     b.ToTable("player_settings", (string)null);
-                });
-
-            modelBuilder.Entity("CannedNet.PromoExternalContent", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("RoomId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Tooltip")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasAnnotation("Relational:JsonPropertyName", "tooltip");
-
-                    b.Property<int>("Type")
-                        .HasColumnType("integer")
-                        .HasAnnotation("Relational:JsonPropertyName", "type");
-
-                    b.Property<string>("Url")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasAnnotation("Relational:JsonPropertyName", "url");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("RoomId");
-
-                    b.ToTable("promo_external_contents", (string)null);
-                });
-
-            modelBuilder.Entity("CannedNet.PromoImage", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("ImageUrl")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasAnnotation("Relational:JsonPropertyName", "imageUrl");
-
-                    b.Property<int>("RoomId")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("SortOrder")
-                        .HasColumnType("integer")
-                        .HasAnnotation("Relational:JsonPropertyName", "sortOrder");
-
-                    b.Property<string>("Tooltip")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasAnnotation("Relational:JsonPropertyName", "tooltip");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("RoomId");
-
-                    b.ToTable("promo_images", (string)null);
                 });
 
             modelBuilder.Entity("CannedNet.Room", b =>
@@ -553,36 +460,6 @@ namespace CannedNet.Migrations
                         .IsUnique();
 
                     b.ToTable("room_instances", (string)null);
-                });
-
-            modelBuilder.Entity("CannedNet.RoomRole", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("AccountId")
-                        .HasColumnType("integer")
-                        .HasAnnotation("Relational:JsonPropertyName", "accountId");
-
-                    b.Property<int>("InvitedRole")
-                        .HasColumnType("integer")
-                        .HasAnnotation("Relational:JsonPropertyName", "invitedRole");
-
-                    b.Property<int>("Role")
-                        .HasColumnType("integer")
-                        .HasAnnotation("Relational:JsonPropertyName", "role");
-
-                    b.Property<int>("RoomId")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("RoomId");
-
-                    b.ToTable("room_roles", (string)null);
                 });
 
             modelBuilder.Entity("CannedNet.SavedOutfit", b =>

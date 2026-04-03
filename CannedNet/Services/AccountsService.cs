@@ -170,5 +170,23 @@ public class AccountsService
 
             return Results.Ok(RecNetResultWithValue<Account>.Ok(account));
         });
+        app.MapGet("/parentalcontrol/me", async (HttpRequest request, AppDbContext db) =>
+        {
+                var authHeader = request.Headers.Authorization.ToString();
+        
+                if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                    return Results.Unauthorized();
+    
+                var token = authHeader.Substring("Bearer ".Length);
+                var accountId = jwtService.ValidateAndGetAccountId(token);
+    
+                if (string.IsNullOrEmpty(accountId))
+                    return Results.Unauthorized();
+    
+                if (!int.TryParse(accountId.AsSpan(), out var id))
+                    return Results.Unauthorized();
+                
+                return Results.Content($"{{\"accountId\":{accountId},\"disallowInAppPurchases\":false}}", "application/json");
+        });
     }
 }

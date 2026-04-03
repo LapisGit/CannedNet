@@ -24,6 +24,7 @@ public static class Services
         new() { Name = "Notify", Port = 5006, ServiceType = typeof(NotifyService), ConfigureBuilder = b => b.ConfigureRecNetServices(), MapEndpoints = (app, _) => new NotifyService().MapEndpoints(app) },
         new() { Name = "CDN", Port = 5007, ServiceType = typeof(CDNService), ConfigureBuilder = b => b.ConfigureRecNetServices(), MapEndpoints = (app, _) => new CDNService().MapEndpoints(app) },
         new() { Name = "Image", Port = 5008, ServiceType = typeof(ImageService), ConfigureBuilder = b => b.ConfigureRecNetServices(), MapEndpoints = (app, _) => new ImageService().MapEndpoints(app) },
-        new() { Name = "Clubs", Port = 5009, ServiceType = typeof(ClubsService), ConfigureBuilder = b => b.ConfigureRecNetServices(), MapEndpoints = (app, _) => new ClubsService().MapEndpoints(app) }
+        new() { Name = "Clubs", Port = 5009, ServiceType = typeof(ClubsService), ConfigureBuilder = b => b.ConfigureRecNetServices(), MapEndpoints = (app, _) => new ClubsService().MapEndpoints(app) },
+        new() { Name = "Commerce", Port = 5010, ServiceType = typeof(CommerceService), ConfigureBuilder = b => b.ConfigureRecNetServices(), MapEndpoints = (app, _) => new CommerceService().MapEndpoints(app) }
     ];
 }

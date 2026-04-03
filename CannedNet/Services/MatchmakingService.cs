@@ -59,81 +59,144 @@ public class MatchmakingService
             if (!int.TryParse(accountId.AsSpan(), out var id))
                 return Results.Unauthorized();
 
-            var photonRoomId = Guid.NewGuid().ToString();
+            Room? roomData = null;
+            var roomLower = room.ToLower();
             
-            var existingInstance = await db.RoomInstances.FirstOrDefaultAsync(r => r.OwnerAccountId == id);
-            
-            if (existingInstance != null)
+            if (int.TryParse(room, out var roomId))
             {
-                existingInstance.roomInstanceId = 1;
-                existingInstance.roomId = 1;
-                existingInstance.subRoomId = 1;
-                existingInstance.roomInstanceType = 2;
-                existingInstance.location = "76d98498-60a1-430c-ab76-b54a29b7a163";
-                existingInstance.dataBlob = "";
-                existingInstance.eventId = 0;
-                existingInstance.clubId = 0;
-                existingInstance.roomCode = "";
-                existingInstance.photonRegionId = "us";
-                existingInstance.photonRoomId = photonRoomId;
-                existingInstance.name = room;
-                existingInstance.maxCapacity = 4;
-                existingInstance.isFull = false;
-                existingInstance.isPrivate = true;
-                existingInstance.isInProgress = false;
-                existingInstance.EncryptVoiceChat = false;
+                roomData = await db.Rooms.FirstOrDefaultAsync(r => r.RoomId == roomId);
+            }
+            
+            if (roomData == null)
+            {
+                roomData = await db.Rooms.FirstOrDefaultAsync(r => r.Name.ToLower() == roomLower);
+            }
+
+            if (roomData == null && roomLower == "dormroom")
+            {
+                roomData = new Room
+                {
+                    RoomId = 1,
+                    Name = "DormRoom",
+                    Description = "Your private room",
+                    CreatorAccountId = id,
+                    EncryptVoiceChat = false
+                };
+            }
+
+            if (roomData == null)
+            {
+                return Results.NotFound("Room not found");
+            }
+
+            var subRoom = await db.SubRooms.FirstOrDefaultAsync(s => s.RoomId == roomData.RoomId);
+            
+            string location = subRoom?.UnitySceneId ?? "";
+            int subRoomId = subRoom?.SubRoomId ?? 0;
+            int maxCapacity = subRoom?.MaxPlayers ?? 4;
+
+            if (string.IsNullOrEmpty(location))
+            {
+                location = "76d98498-60a1-430c-ab76-b54a29b7a163";
+            }
+
+            if (subRoomId == 0)
+            {
+                subRoomId = 1;
+            }
+
+            var publicInstance = await db.RoomInstances
+                .FirstOrDefaultAsync(r => r.roomId == roomData.RoomId && !r.isPrivate && !r.isFull);
+
+            RoomInstance? instanceToUse;
+            string photonRoomId;
+
+            if (publicInstance != null)
+            {
+                photonRoomId = publicInstance.photonRoomId ?? Guid.NewGuid().ToString();
+                publicInstance.photonRoomId = photonRoomId;
+                publicInstance.roomInstanceId = publicInstance.Id;
+                instanceToUse = publicInstance;
             }
             else
             {
-                db.RoomInstances.Add(new RoomInstance
+                photonRoomId = Guid.NewGuid().ToString();
+                
+                var existingInstance = await db.RoomInstances.FirstOrDefaultAsync(r => r.OwnerAccountId == id);
+                
+                if (existingInstance != null)
                 {
-                    OwnerAccountId = id,
-                    roomInstanceId = 1,
-                    roomId = 1,
-                    subRoomId = 1,
-                    roomInstanceType = 2,
-                    location = "76d98498-60a1-430c-ab76-b54a29b7a163",
-                    dataBlob = "",
-                    eventId = 0,
-                    clubId = 0,
-                    roomCode = "",
-                    photonRegionId = "us",
-                    photonRoomId = photonRoomId,
-                    name = room,
-                    maxCapacity = 4,
-                    isFull = false,
-                    isPrivate = true,
-                    isInProgress = false,
-                    EncryptVoiceChat = false
-                });
+                    existingInstance.roomInstanceId = existingInstance.Id;
+                    existingInstance.roomId = roomData.RoomId;
+                    existingInstance.subRoomId = subRoomId;
+                    existingInstance.location = location;
+                    existingInstance.dataBlob = "";
+                    existingInstance.photonRegionId = "us";
+                    existingInstance.photonRoomId = photonRoomId;
+                    existingInstance.name = roomData.Name;
+                    existingInstance.maxCapacity = maxCapacity;
+                    existingInstance.isFull = false;
+                    existingInstance.isPrivate = false;
+                    instanceToUse = existingInstance;
+                }
+                else
+                {
+                    instanceToUse = new RoomInstance
+                    {
+                        OwnerAccountId = id,
+                        roomInstanceId = 1,
+                        roomId = roomData.RoomId,
+                        subRoomId = subRoomId,
+                        roomInstanceType = 2,
+                        location = location,
+                        dataBlob = "",
+                        photonRegionId = "us",
+                        photonRoomId = photonRoomId,
+                        name = roomData.Name,
+                        maxCapacity = maxCapacity,
+                        isFull = false,
+                        isPrivate = false,
+                        isInProgress = false,
+                        EncryptVoiceChat = roomData.EncryptVoiceChat
+                    };
+                    db.RoomInstances.Add(instanceToUse);
+                }
             }
             
             await db.SaveChangesAsync();
+
+            if (instanceToUse.Id == 0)
+            {
+                instanceToUse = await db.RoomInstances.FirstOrDefaultAsync(r => r.OwnerAccountId == id && r.roomId == roomData.RoomId);
+            }
             
-            return Results.Json(new
+            var response = new
             {
                 errorCode = 0,
                 roomInstance = new
                 {
-                    roomInstanceId = 1,
-                    roomId = 1,
-                    subRoomId = 1,
-                    roomInstanceType = 2,
-                    location = "76d98498-60a1-430c-ab76-b54a29b7a163",
-                    dataBlob = "",
-                    eventId = 0,
-                    clubId = 0,
-                    roomCode = "",
-                    photonRegionId = "us",
-                    photonRoomId = photonRoomId,
-                    name = room,
-                    maxCapacity = 4,
-                    isFull = false,
-                    isPrivate = true,
-                    isInProgress = false,
-                    EncryptVoiceChat = false
+                    roomInstanceId = instanceToUse?.Id ?? 1,
+                    roomId = instanceToUse?.roomId ?? roomData.RoomId,
+                    subRoomId = instanceToUse?.subRoomId ?? subRoomId,
+                    roomInstanceType = instanceToUse?.roomInstanceType ?? 2,
+                    location = instanceToUse?.location ?? location,
+                    dataBlob = instanceToUse?.dataBlob ?? "",
+                    eventId = instanceToUse?.eventId ?? 0,
+                    clubId = instanceToUse?.clubId ?? 0,
+                    roomCode = instanceToUse?.roomCode ?? "",
+                    photonRegionId = instanceToUse?.photonRegionId ?? "us",
+                    photonRoomId = instanceToUse?.photonRoomId ?? photonRoomId,
+                    name = instanceToUse?.name ?? roomData.Name,
+                    maxCapacity = instanceToUse?.maxCapacity ?? maxCapacity,
+                    isFull = instanceToUse?.isFull ?? false,
+                    isPrivate = instanceToUse?.isPrivate ?? false,
+                    isInProgress = instanceToUse?.isInProgress ?? false,
+                    EncryptVoiceChat = instanceToUse?.EncryptVoiceChat ?? roomData.EncryptVoiceChat
                 }
-            });
+            };
+            
+            Console.WriteLine($"[DEBUG] Full response: {System.Text.Json.JsonSerializer.Serialize(response)}");
+            return Results.Json(response);
         });
         
         app.MapPost("/goto/none", (HttpRequest request) =>
@@ -204,30 +267,30 @@ public class MatchmakingService
 
             return Results.Json(new
             {
-                playerId = id,
+                playerId = heartbeat.playerId != 0 ? heartbeat.playerId : id,
                 statusVisibility = heartbeat.statusVisibility,
                 deviceClass = heartbeat.deviceClass,
-                vrMovementMode = heartbeat.vrMovementMode,
-                roomInstance = new
+                vrMovementMode = heartbeat.vrMovementMode != 0 ? heartbeat.vrMovementMode : 1,
+                roomInstance = roomInstance != null ? new RoomInstance()
                 {
-                    roomInstanceId = roomInstance?.roomInstanceId ?? 0,
-                    roomId = roomInstance?.roomId ?? 0,
-                    subRoomId = roomInstance?.subRoomId ?? 0,
-                    roomInstanceType = roomInstance?.roomInstanceType ?? 0,
-                    location = roomInstance?.location ?? "",
-                    dataBlob = roomInstance?.dataBlob ?? "",
-                    eventId = roomInstance?.eventId ?? 0,
-                    clubId = roomInstance?.clubId ?? 0,
-                    roomCode = roomInstance?.roomCode ?? "",
-                    photonRegionId = roomInstance?.photonRegionId ?? "us",
-                    photonRoomId = roomInstance?.photonRoomId ?? "",
-                    name = roomInstance?.name ?? "",
-                    maxCapacity = roomInstance?.maxCapacity ?? 0,
-                    isFull = roomInstance?.isFull ?? false,
-                    isPrivate = roomInstance?.isPrivate ?? false,
-                    isInProgress = roomInstance?.isInProgress ?? false,
-                    EncryptVoiceChat = roomInstance?.EncryptVoiceChat ?? false
-                },
+                    roomInstanceId = roomInstance.Id > 0 ? roomInstance.Id : roomInstance.roomInstanceId,
+                    roomId = roomInstance.roomId,
+                    subRoomId = roomInstance.subRoomId,
+                    roomInstanceType = roomInstance.roomInstanceType,
+                    location = roomInstance.location,
+                    dataBlob = roomInstance.dataBlob,
+                    eventId = roomInstance.eventId,
+                    clubId = roomInstance.clubId,
+                    roomCode = roomInstance.roomCode,
+                    photonRegionId = roomInstance.photonRegionId,
+                    photonRoomId = roomInstance.photonRoomId,
+                    name = roomInstance.name,
+                    maxCapacity = roomInstance.maxCapacity,
+                    isFull = roomInstance.isFull,
+                    isPrivate = roomInstance.isPrivate,
+                    isInProgress = roomInstance.isInProgress,
+                    EncryptVoiceChat = roomInstance.EncryptVoiceChat
+                } : null,
                 isOnline = true,
                 appVersion = heartbeat.appVersion ?? "",
                 platform = heartbeat.platform
@@ -236,6 +299,17 @@ public class MatchmakingService
         app.MapPut("/player/statusvisibility", async (HttpRequest request, AppDbContext db) =>
         {
             // TODO ADD FUNCTIONALITY
+            return Results.Ok();
+        });
+        app.MapPut("/roominstance/{id}/reportjoinresult", async (HttpRequest request, AppDbContext db) =>
+        {
+            request.EnableBuffering();
+            request.Body.Position = 0;
+            using var reader = new StreamReader(request.Body);
+            var body = await reader.ReadToEndAsync();
+            
+            Console.WriteLine($"[DEBUG] reportjoinresult body: {body}");
+            
             return Results.Ok();
         });
     }
