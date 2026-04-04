@@ -502,9 +502,6 @@ namespace CannedNet.Migrations
                         .HasColumnType("boolean")
                         .HasAnnotation("Relational:JsonPropertyName", "isPrivate");
 
-                    b.Property<DateTime>("lastHeartbeat")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<string>("location")
                         .IsRequired()
                         .HasColumnType("text")
@@ -531,9 +528,6 @@ namespace CannedNet.Migrations
                         .IsRequired()
                         .HasColumnType("text")
                         .HasAnnotation("Relational:JsonPropertyName", "photonRoomId");
-
-                    b.Property<int>("playerCount")
-                        .HasColumnType("integer");
 
                     b.Property<string>("roomCode")
                         .IsRequired()

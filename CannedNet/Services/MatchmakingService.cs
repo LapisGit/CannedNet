@@ -244,23 +244,6 @@ public class MatchmakingService
                 .OrderByDescending(r => r.Id)
                 .FirstOrDefaultAsync();
 
-            if (roomInstance != null)
-            {
-                roomInstance.lastHeartbeat = DateTime.UtcNow;
-                roomInstance.playerCount = Math.Max(roomInstance.playerCount, 1);
-            }
-
-            var oldInstances = await db.RoomInstances
-                .Where(r => r.lastHeartbeat < DateTime.UtcNow.AddMinutes(-5) && r.playerCount <= 0)
-                .ToListAsync();
-            
-            foreach (var old in oldInstances)
-            {
-                db.RoomInstances.Remove(old);
-            }
-
-            await db.SaveChangesAsync();
-
             return Results.Json(new
             {
                 playerId = heartbeat.playerId != 0 ? heartbeat.playerId : id,
