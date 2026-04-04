@@ -72,18 +72,6 @@ public class MatchmakingService
                 roomData = await db.Rooms.FirstOrDefaultAsync(r => r.Name.ToLower() == roomLower);
             }
 
-            if (roomData == null && roomLower == "dormroom")
-            {
-                roomData = new Room
-                {
-                    RoomId = 1,
-                    Name = "DormRoom",
-                    Description = "Your private room",
-                    CreatorAccountId = id,
-                    EncryptVoiceChat = false
-                };
-            }
-
             if (roomData == null)
             {
                 return Results.NotFound("Room not found");
@@ -94,16 +82,6 @@ public class MatchmakingService
             string location = subRoom?.UnitySceneId ?? "";
             int subRoomId = subRoom?.SubRoomId ?? 0;
             int maxCapacity = subRoom?.MaxPlayers ?? 4;
-
-            if (string.IsNullOrEmpty(location))
-            {
-                location = "76d98498-60a1-430c-ab76-b54a29b7a163";
-            }
-
-            if (subRoomId == 0)
-            {
-                subRoomId = 1;
-            }
 
             var publicInstance = await db.RoomInstances
                 .FirstOrDefaultAsync(r => r.roomId == roomData.RoomId && !r.isPrivate && !r.isFull);
@@ -155,7 +133,7 @@ public class MatchmakingService
                         name = roomData.Name,
                         maxCapacity = maxCapacity,
                         isFull = false,
-                        isPrivate = false,
+                        isPrivate = roomData.RoomId == 1,
                         isInProgress = false,
                         EncryptVoiceChat = roomData.EncryptVoiceChat
                     };
@@ -189,13 +167,11 @@ public class MatchmakingService
                     name = instanceToUse?.name ?? roomData.Name,
                     maxCapacity = instanceToUse?.maxCapacity ?? maxCapacity,
                     isFull = instanceToUse?.isFull ?? false,
-                    isPrivate = instanceToUse?.isPrivate ?? false,
+                    isPrivate = roomData.RoomId == 1 ? true : (instanceToUse?.isPrivate ?? false),
                     isInProgress = instanceToUse?.isInProgress ?? false,
                     EncryptVoiceChat = instanceToUse?.EncryptVoiceChat ?? roomData.EncryptVoiceChat
                 }
             };
-            
-            Console.WriteLine($"[DEBUG] Full response: {System.Text.Json.JsonSerializer.Serialize(response)}");
             return Results.Json(response);
         });
         
@@ -263,7 +239,10 @@ public class MatchmakingService
             if (heartbeat == null)
                 heartbeat = new HeartbeatRequest();
 
-            var roomInstance = await db.RoomInstances.FirstOrDefaultAsync(r => r.OwnerAccountId == id);
+            var roomInstance = await db.RoomInstances
+                .Where(r => r.OwnerAccountId == id)
+                .OrderByDescending(r => r.Id)
+                .FirstOrDefaultAsync();
 
             return Results.Json(new
             {
@@ -291,7 +270,7 @@ public class MatchmakingService
                     isInProgress = roomInstance.isInProgress,
                     EncryptVoiceChat = roomInstance.EncryptVoiceChat
                 } : null,
-                isOnline = true,
+                isOnline = roomInstance != null && roomInstance.roomId != 1,
                 appVersion = heartbeat.appVersion ?? "",
                 platform = heartbeat.platform
             });
@@ -301,15 +280,8 @@ public class MatchmakingService
             // TODO ADD FUNCTIONALITY
             return Results.Ok();
         });
-        app.MapPut("/roominstance/{id}/reportjoinresult", async (HttpRequest request, AppDbContext db) =>
+        app.MapPost("/roominstance/{id}/reportjoinresult", async (HttpRequest request, AppDbContext db) =>
         {
-            request.EnableBuffering();
-            request.Body.Position = 0;
-            using var reader = new StreamReader(request.Body);
-            var body = await reader.ReadToEndAsync();
-            
-            Console.WriteLine($"[DEBUG] reportjoinresult body: {body}");
-            
             return Results.Ok();
         });
     }

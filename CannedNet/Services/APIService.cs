@@ -712,31 +712,23 @@ public class APIService
             if (room == null)
                 return Results.NotFound();
 
-            var include = request.Query["include"].FirstOrDefault() ?? "";
-
-            bool includeSubRooms = include.Contains("subRooms", StringComparison.OrdinalIgnoreCase);
-            bool includeRoles = include.Contains("roles", StringComparison.OrdinalIgnoreCase);
-            bool includeLoadScreens = include.Contains("loadScreens", StringComparison.OrdinalIgnoreCase);
-            bool includePromoImages = include.Contains("promoImages", StringComparison.OrdinalIgnoreCase);
-            bool includeExternal = include.Contains("promoExternalContent", StringComparison.OrdinalIgnoreCase);
-
-            var subRooms = includeSubRooms
+            var subRooms = true
                 ? await db.SubRooms.Where(x => x.RoomId == room.RoomId).ToListAsync()
                 : new List<SubRoom>();
 
-            var roles = includeRoles
+            var roles = true
                 ? await db.RoomRoles.Where(x => x.RoomId == room.RoomId).ToListAsync()
                 : new List<RoomRole>();
 
-            var loadScreens = includeLoadScreens
+            var loadScreens = true
                 ? await db.LoadScreens.Where(x => x.RoomId == room.RoomId).ToListAsync()
                 : new List<LoadScreen>();
 
-            var promoImages = includePromoImages
+            var promoImages = true
                 ? await db.PromoImages.Where(x => x.RoomId == room.RoomId).ToListAsync()
                 : new List<PromoImage>();
 
-            var external = includeExternal
+            var external = true
                 ? await db.PromoExternalContents.Where(x => x.RoomId == room.RoomId).ToListAsync()
                 : new List<PromoExternalContent>();
 
@@ -784,6 +776,7 @@ public class APIService
                 SubRooms = subRooms.Select(s => new
                 {
                     s.SubRoomId,
+                    s.RoomId,
                     s.Name,
                     s.DataBlob,
                     s.IsSandbox,

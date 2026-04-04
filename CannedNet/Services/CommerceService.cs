@@ -8,7 +8,7 @@ public class CommerceService
     {
         app.MapGet("/purchase/v1/hasspentmoney", (HttpRequest request) =>
         {
-            return "true";
+            return Results.NotFound();
         });
     }
 }

@@ -105,7 +105,7 @@ public class AppDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
             entity.Property(e => e.OwnerAccountId).IsRequired();
-            entity.HasIndex(e => e.OwnerAccountId).IsUnique();
+            entity.HasIndex(e => new { e.OwnerAccountId, e.roomId });
             entity.ToTable("room_instances");
         });
 
