@@ -101,7 +101,7 @@ public class NotificationService
         await hubContext.Clients.All.SendAsync("Notification", notification);
     }
 
-    public NotificationMessage CreateNotification(string notificationType, int? id = null, int? fromAccountId = null, int? toAccountId = null, Dictionary<string, object>? data = null)
+    public NotificationMessage CreateNotification(PushNotificationId notificationType, int? id = null, int? fromAccountId = null, int? toAccountId = null, Dictionary<string, object>? data = null)
     {
         return new NotificationMessage
         {

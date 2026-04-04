@@ -58,14 +58,7 @@ public class RequestLoggingMiddleware
 
     private static bool IsSensitiveHeader(string headerName)
     {
-        var sensitiveHeaders = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "Authorization",
-            "Cookie",
-            "Set-Cookie",
-            "X-Auth-Token",
-            "X-Csrf-Token"
-        };
+        var sensitiveHeaders = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { };
         return sensitiveHeaders.Contains(headerName);
     }
 }

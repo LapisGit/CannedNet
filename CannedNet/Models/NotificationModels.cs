@@ -8,7 +8,7 @@ public class NotificationMessage
     public string? NotificationId { get; set; }
 
     [JsonPropertyName("notificationType")]
-    public string? NotificationType { get; set; }
+    public PushNotificationId? NotificationType { get; set; }
 
     [JsonPropertyName("id")]
     public int? Id { get; set; }
@@ -95,7 +95,7 @@ public class RelationshipChangedNotification
     public int? AccountId { get; set; }
 
     [JsonPropertyName("relationshipType")]
-    public string? RelationshipType { get; set; }
+    public RelationshipType? RelationshipType { get; set; }
 
     [JsonPropertyName("status")]
     public string? Status { get; set; }
@@ -227,5 +227,5 @@ public class InventionModerationNotification
     public string? InventionId { get; set; }
 
     [JsonPropertyName("moderationState")]
-    public string? ModerationState { get; set; }
+    public ModerationState? ModerationState { get; set; }
 }
