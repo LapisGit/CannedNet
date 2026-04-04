@@ -547,7 +547,6 @@ public class APIService
         });
         app.MapPost("/api/CampusCard/v1/UpdateAndGetSubscription", async (HttpRequest request, AppDbContext db) =>
         {
-            // TODO ADD FUNCTIONALITY
             return Results.Json(new { subscription = (object?)null, platformAccountSubscribedPlayerId = (object?)null });
         });
         app.MapGet("/api/storefronts/v4/balance/2", async (HttpRequest request, AppDbContext db) =>
@@ -579,6 +578,58 @@ public class APIService
             // TODO ADD FUNCTIONALITY
             var roomid = request.Query["roomId"];
             return "[]";
+        });
+        app.MapGet("/api/accounts/v1/getBio", async (HttpRequest request, AppDbContext db) =>
+        {
+            // TODO: store bio's in db
+            
+            var authHeader = request.Headers.Authorization.ToString();
+            
+            if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                return Results.Unauthorized();
+
+            var token = authHeader.Substring("Bearer ".Length);
+            var accountId = jwtService.ValidateAndGetAccountId(token);
+
+            if (string.IsNullOrEmpty(accountId) || !int.TryParse(accountId.AsSpan(), out var id))
+                return Results.Unauthorized();
+
+            return Results.Json(new { accountId = id, bio = "" });
+        });
+        app.MapPost("/api/accounts/v1/forplatformids", async (HttpRequest request, AppDbContext db) =>
+        {
+            request.EnableBuffering();
+            request.Body.Position = 0;
+            using var reader = new StreamReader(request.Body);
+            var body = await reader.ReadToEndAsync();
+            
+            var ids = new List<string>();
+            
+            if (!string.IsNullOrWhiteSpace(body))
+            {
+                foreach (var pair in body.Split('&'))
+                {
+                    var keyValue = pair.Split('=');
+                    if (keyValue.Length == 2 && keyValue[0] == "Ids")
+                    {
+                        var idString = Uri.UnescapeDataString(keyValue[1]);
+                        ids = idString.Split(',').ToList();
+                        break;
+                    }
+                }
+            }
+            
+            var results = new List<object>();
+            foreach (var platformId in ids)
+            {
+                var cachedLogin = await db.CachedLogins.FirstOrDefaultAsync(c => c.PlatformID == platformId);
+                if (cachedLogin != null)
+                {
+                    results.Add(new { accountId = cachedLogin.AccountId, platformId = platformId });
+                }
+            }
+            
+            return Results.Json(results);
         });
         app.MapGet("/api/storefronts/v3/giftdropstore/3", async (HttpRequest request, AppDbContext db) =>
         {

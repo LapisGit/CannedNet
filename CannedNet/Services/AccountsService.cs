@@ -188,5 +188,63 @@ public class AccountsService
                 
                 return Results.Content($"{{\"accountId\":{accountId},\"disallowInAppPurchases\":false}}", "application/json");
         });
+        
+        app.MapPut("/account/me/displayname", async (HttpRequest request, AppDbContext db) =>
+        {
+            // TODO: get what the server should actually respond with, OK fails.
+            
+            var authHeader = request.Headers.Authorization.ToString();
+    
+            if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                return Results.Unauthorized();
+
+            var token = authHeader.Substring("Bearer ".Length);
+            var accountId = jwtService.ValidateAndGetAccountId(token);
+
+            if (string.IsNullOrEmpty(accountId))
+                return Results.Unauthorized();
+
+            if (!int.TryParse(accountId.AsSpan(), out var id))
+                return Results.Unauthorized();
+
+            string newDisplayName = "";
+            
+            if (request.ContentLength.HasValue && request.ContentLength > 0)
+            {
+                try
+                {
+                    request.EnableBuffering();
+                    using var reader = new StreamReader(request.Body, leaveOpen: true);
+                    var body = await reader.ReadToEndAsync();
+                    
+                    if (!string.IsNullOrWhiteSpace(body))
+                    {
+                        foreach (var pair in body.Split('&'))
+                        {
+                            var keyValue = pair.Split('=');
+                            if (keyValue.Length == 2)
+                            {
+                                var key = Uri.UnescapeDataString(keyValue[0]);
+                                var value = Uri.UnescapeDataString(keyValue[1]);
+
+                                if (key == "displayName")
+                                    newDisplayName = value;
+                            }
+                        }
+                    }
+                    request.Body.Position = 0;
+                }
+                catch { }
+            }
+
+            var account = await db.Accounts.FindAsync(id);
+            if (account == null)
+                return Results.NotFound();
+
+            account.DisplayName = newDisplayName;
+            await db.SaveChangesAsync();
+
+            return Results.Ok();
+        });
     }
 }

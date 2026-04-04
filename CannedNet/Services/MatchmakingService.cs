@@ -58,7 +58,7 @@ public class MatchmakingService
 
             if (!int.TryParse(accountId.AsSpan(), out var id))
                 return Results.Unauthorized();
-
+            
             Room? roomData = null;
             var roomLower = room.ToLower();
             
@@ -100,7 +100,7 @@ public class MatchmakingService
             {
                 photonRoomId = Guid.NewGuid().ToString();
                 
-                var existingInstance = await db.RoomInstances.FirstOrDefaultAsync(r => r.OwnerAccountId == id);
+                var existingInstance = await db.RoomInstances.FirstOrDefaultAsync(r => r.OwnerAccountId == id && r.roomId == roomData.RoomId);
                 
                 if (existingInstance != null)
                 {
@@ -270,7 +270,7 @@ public class MatchmakingService
                     isInProgress = roomInstance.isInProgress,
                     EncryptVoiceChat = roomInstance.EncryptVoiceChat
                 } : null,
-                isOnline = roomInstance != null && roomInstance.roomId != 1,
+                isOnline = roomInstance != null,
                 appVersion = heartbeat.appVersion ?? "",
                 platform = heartbeat.platform
             });
