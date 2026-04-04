@@ -240,7 +240,7 @@ public class MatchmakingService
                 heartbeat = new HeartbeatRequest();
 
             var roomInstance = await db.RoomInstances
-                .Where(r => r.OwnerAccountId == id && !r.pendingJoin)
+                .Where(r => r.OwnerAccountId == id)
                 .OrderByDescending(r => r.Id)
                 .FirstOrDefaultAsync();
 

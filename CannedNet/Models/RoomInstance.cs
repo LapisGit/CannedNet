@@ -40,7 +40,4 @@ public class RoomInstance
     public bool isInProgress { get; set; }
     [JsonPropertyName("EncryptVoiceChat")]
     public bool EncryptVoiceChat { get; set; }
-    public bool pendingJoin { get; set; }
-    public int playerCount { get; set; }
-    public DateTime lastHeartbeat { get; set; }
 }

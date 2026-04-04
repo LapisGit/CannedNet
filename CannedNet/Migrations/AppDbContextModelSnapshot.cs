@@ -516,9 +516,6 @@ namespace CannedNet.Migrations
                         .HasColumnType("text")
                         .HasAnnotation("Relational:JsonPropertyName", "name");
 
-                    b.Property<bool>("pendingJoin")
-                        .HasColumnType("boolean");
-
                     b.Property<string>("photonRegionId")
                         .IsRequired()
                         .HasColumnType("text")
