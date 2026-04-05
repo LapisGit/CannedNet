@@ -1756,16 +1756,9 @@ public class APIController
                             toAccountId: id,
                             data: new Dictionary<string, object>
                             {
-                                { "Id", giftId },
-                                { "ConsumableType", "JfnVXFmilU6ysv-VbTAe3A" },
-                                { "PlatformMask", -1 },
-                                { "Count", 1 },
-                                { "InitialCount", 1 },
-                                { "UnlockedLevel", 0 },
-                                { "CreatedAt", DateTime.UtcNow },
-                                { "IsActive", false },
-                                { "Category", 0 },
-                                { "IsPlatformLocked", false }
+                                { "mappingId", giftId },
+                                { "consumableId", 0 },
+                                { "quantity", 1 }
                             }
                         );
                         await notificationService.SendNotificationToPlayer(id, consumableNotification);
