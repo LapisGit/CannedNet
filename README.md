@@ -7,6 +7,8 @@ Lots of data and stuff like the photon servers listed here are Radium's servers,
 
 TODO:
 
+- Player Display Name/@ Name/PFP changing
+- Outfit saving
 - CDN server
 - Play tab + other rooms (kinda?? play tab is very buggy)
 - Clubs Server
