@@ -1,26 +1,39 @@
 using System.Collections.Concurrent;
+using System.Text;
+using System.Text.Json;
+using CannedNet.Hubs;
 using Microsoft.AspNetCore.SignalR;
 
 namespace CannedNet.Services;
 
 public class NotificationService
 {
-    private readonly ConcurrentDictionary<string, HashSet<int>> _connectionSubscriptions = new();
-    private readonly ConcurrentDictionary<int, HashSet<string>> _playerConnections = new();
+    private static readonly ConcurrentDictionary<string, HashSet<int>> _connectionSubscriptions = new();
+    private static readonly ConcurrentDictionary<int, HashSet<string>> _playerConnections = new();
+    private static readonly ConcurrentDictionary<int, Queue<NotificationMessage>> _pendingNotifications = new();
+    private static IHubContext<NotificationsHub>? _hubContext;
     private readonly ILogger<NotificationService> _logger;
+    private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
 
     public NotificationService(ILogger<NotificationService> logger)
     {
         _logger = logger;
     }
 
+    public static void SetHubContext(IHubContext<NotificationsHub> hubContext)
+    {
+        _hubContext = hubContext;
+    }
+
     public void OnConnected(string connectionId)
     {
+        _logger.LogInformation($"Client connected: {connectionId}");
         _connectionSubscriptions.TryAdd(connectionId, new HashSet<int>());
     }
 
     public void OnDisconnected(string connectionId)
     {
+        _logger.LogInformation($"Client disconnected: {connectionId}");
         if (_connectionSubscriptions.TryRemove(connectionId, out var subscriptions))
         {
             foreach (var playerId in subscriptions)
@@ -37,10 +50,12 @@ public class NotificationService
         }
     }
 
-    public Task SubscribeToPlayers(string connectionId, SubscriptionList subscriptionList)
+    public async Task SubscribeToPlayers(string connectionId, SubscriptionList subscriptionList, IHubContext<NotificationsHub> hubContext)
     {
         var oldSubscriptions = _connectionSubscriptions.GetValueOrDefault(connectionId, new HashSet<int>());
         var newPlayerIds = subscriptionList.PlayerIds ?? new List<int>();
+
+        _logger.LogInformation($"Connection {connectionId} subscribing to players: {string.Join(", ", newPlayerIds)}");
 
         _connectionSubscriptions[connectionId] = new HashSet<int>(newPlayerIds);
 
@@ -54,6 +69,22 @@ public class NotificationService
                     existing.Add(connectionId);
                     return existing;
                 });
+
+            if (_pendingNotifications.TryRemove(playerId, out var pendingQueue))
+            {
+                _logger.LogInformation($"Found {pendingQueue.Count} pending notifications for player {playerId}. Sending to connection {connectionId}");
+                while (pendingQueue.TryDequeue(out var notification))
+                {
+                    try
+                    {
+                        await SendToConnection(hubContext, connectionId, notification);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, $"Error sending pending notification to player {playerId}");
+                    }
+                }
+            }
         }
 
         foreach (var playerId in oldSubscriptions)
@@ -63,8 +94,6 @@ public class NotificationService
                 connections.Remove(connectionId);
             }
         }
-
-        return Task.CompletedTask;
     }
 
     public HashSet<int>? GetSubscriptions(string connectionId)
@@ -90,24 +119,44 @@ public class NotificationService
         return Enumerable.Empty<int>();
     }
 
-    public async Task SendNotificationToPlayer(string callerConnectionId, IHubContext hubContext, int playerId, NotificationMessage notification)
+    public async Task SendNotificationToPlayer(int playerId, NotificationMessage notification)
     {
+        if (_hubContext == null)
+        {
+            _logger.LogWarning("No hub context available. Cannot send notification.");
+            return;
+        }
+
         try
         {
-            var connections = GetConnectionsForPlayer(playerId);
-            foreach (var connectionId in connections)
-            {
-                if (connectionId == callerConnectionId)
-                    continue;
+            var connections = GetConnectionsForPlayer(playerId).ToList();
+            _logger.LogInformation($"Attempting to send notification to player {playerId}. Found {connections.Count} connections. NotificationType: {notification.NotificationType}");
 
-                try
+            if (connections.Any())
+            {
+                foreach (var connectionId in connections)
                 {
-                    await hubContext.Clients.Client(connectionId).SendAsync("Notification", notification);
+                    try
+                    {
+                        await SendToConnection(_hubContext, connectionId, notification);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, $"Error sending notification to player {playerId} on connection {connectionId}. NotificationType: {notification.NotificationType}");
+                    }
                 }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, $"Error sending notification to player {playerId} on connection {connectionId}. NotificationType: {notification.NotificationType}");
-                }
+            }
+            else
+            {
+                _logger.LogWarning($"No connections found for player {playerId}. Queueing notification for later delivery. NotificationType: {notification.NotificationType}");
+                _pendingNotifications.AddOrUpdate(
+                    playerId,
+                    _ => new Queue<NotificationMessage>(new[] { notification }),
+                    (_, queue) =>
+                    {
+                        queue.Enqueue(notification);
+                        return queue;
+                    });
             }
         }
         catch (Exception ex)
@@ -116,11 +165,23 @@ public class NotificationService
         }
     }
 
-    public async Task BroadcastNotification(IHubContext hubContext, NotificationMessage notification)
+    public async Task BroadcastNotification(NotificationMessage notification)
     {
+        if (_hubContext == null)
+        {
+            _logger.LogWarning("No hub context available. Cannot broadcast notification.");
+            return;
+        }
+
         try
         {
-            await hubContext.Clients.All.SendAsync("Notification", notification);
+            foreach (var kvp in _playerConnections)
+            {
+                foreach (var connectionId in kvp.Value)
+                {
+                    await SendToConnection(_hubContext, connectionId, notification);
+                }
+            }
         }
         catch (Exception ex)
         {
@@ -140,5 +201,59 @@ public class NotificationService
             CreatedAt = DateTime.UtcNow,
             Data = data
         };
+    }
+
+    private static async Task SendToConnection(IHubContext<NotificationsHub> hubContext, string connectionId, NotificationMessage notification)
+    {
+        var notificationData = BuildNotificationObject(notification);
+        try
+        {
+            var json = JsonSerializer.Serialize(notificationData);
+            System.Console.WriteLine($"[NotificationService] Sending notification to {connectionId}: {json}");
+        }
+        catch (Exception ex)
+        {
+            System.Console.WriteLine($"[NotificationService] Error serializing notification: {ex.Message}");
+        }
+        await hubContext.Clients.Client(connectionId).SendAsync("Notification", notificationData);
+    }
+
+    private static Dictionary<string, object?> BuildNotificationObject(NotificationMessage notification)
+    {
+        var dict = new Dictionary<string, object?>
+        {
+            { "notificationId", notification.NotificationId ?? "" },
+            { "notificationType", (int?)notification.NotificationType ?? 0 },
+        };
+
+        // Only add optional fields if they have values
+        if (notification.Id.HasValue)
+            dict.Add("id", notification.Id.Value);
+        if (notification.FromAccountId.HasValue)
+            dict.Add("fromAccountId", notification.FromAccountId.Value);
+        if (notification.ToAccountId.HasValue)
+            dict.Add("toAccountId", notification.ToAccountId.Value);
+        if (notification.CreatedAt.HasValue)
+            dict.Add("createdAt", notification.CreatedAt.Value.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"));
+
+        // Properly serialize the data dictionary, converting DateTime objects to ISO 8601 strings
+        var serializedData = new Dictionary<string, object>();
+        if (notification.Data != null && notification.Data.Count > 0)
+        {
+            foreach (var kvp in notification.Data)
+            {
+                if (kvp.Value is DateTime dt)
+                {
+                    serializedData[kvp.Key] = dt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
+                }
+                else if (kvp.Value != null)
+                {
+                    serializedData[kvp.Key] = kvp.Value;
+                }
+            }
+        }
+
+        dict.Add("data", serializedData);
+        return dict;
     }
 }

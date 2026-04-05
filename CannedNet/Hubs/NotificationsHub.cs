@@ -28,7 +28,11 @@ public class NotificationsHub : Hub
 
     public async Task SubscribeToPlayers(SubscriptionList subscriptionList)
     {
-        await _notificationService.SubscribeToPlayers(Context.ConnectionId, subscriptionList);
+        var hubContext = GetService<IHubContext<NotificationsHub>>();
+        if (hubContext != null)
+        {
+            await _notificationService.SubscribeToPlayers(Context.ConnectionId, subscriptionList, hubContext);
+        }
     }
 
     public Task<HashSet<int>> GetSubscriptions()
@@ -39,5 +43,10 @@ public class NotificationsHub : Hub
     public NotificationService GetNotificationService()
     {
         return _notificationService;
+    }
+
+    private T? GetService<T>() where T : class
+    {
+        return Context.GetHttpContext()?.RequestServices.GetService(typeof(T)) as T;
     }
 }

@@ -1353,15 +1353,26 @@ public class APIController
                 db.TokenBalances.Update(tokenBalance);
                 await db.SaveChangesAsync();
 
-                // Store each gift in the database as a received gift with all properties
+                var receiverAccountId = id;
+                int? senderPlayerId = null;
+                
+                if (buyRequest.Gift != null)
+                {
+                    receiverAccountId = buyRequest.Gift.ToPlayerId;
+                    if (!buyRequest.Gift.Anonymous)
+                    {
+                        senderPlayerId = id;
+                    }
+                }
+
                 var storedGifts = new List<ReceivedGift>();
                 foreach (var giftDrop in storefrontItem.GiftDrops)
                 {
                     var receivedGift = new ReceivedGift
                     {
-                        ReceiverAccountId = id,
-                        FromPlayerId = null,
-                        Message = "A gift for you <3",
+                        ReceiverAccountId = receiverAccountId,
+                        FromPlayerId = senderPlayerId,
+                        Message = buyRequest.Gift?.Message ?? "A gift for you <3",
                         ConsumableItemDesc = giftDrop.ConsumableItemDesc ?? string.Empty,
                         AvatarItemDesc = giftDrop.AvatarItemDesc ?? string.Empty,
                         FriendlyName = giftDrop.FriendlyName ?? string.Empty,
@@ -1375,7 +1386,7 @@ public class APIController
                         Platform = -1,
                         PlatformsToSpawnOn = -1,
                         BalanceType = 0,
-                        GiftContext = giftDrop.Context,
+                        GiftContext = buyRequest.Gift?.GiftContext ?? giftDrop.Context,
                         GiftRarity = giftDrop.Rarity,
                         ReceivedAt = DateTime.UtcNow,
                         IsConsumed = false
@@ -1386,7 +1397,6 @@ public class APIController
                 }
                 await db.SaveChangesAsync();
 
-                // Build the response with stored gift IDs
                 var giftData = storedGifts.Select(rg => new GiftData
                 {
                     Id = rg.Id,
@@ -1424,28 +1434,27 @@ public class APIController
                     Platform = -1
                 };
 
-                // Send notification for purchase
                 try
                 {
-                    var hubContext = app.Services.GetService<IHubContext>();
-                    if (hubContext != null)
-                    {
-                        var purchaseNotification = notificationService.CreateNotification(
-                            PushNotificationId.StorefrontBalancePurchase,
-                            id: storefrontItem.Id,
-                            toAccountId: id,
-                            data: new Dictionary<string, object>
-                            {
-                                { "ItemId", buyRequest.PurchasableItemId },
-                                { "Price", price.Price },
-                                { "CurrencyType", buyRequest.CurrencyType },
-                                { "NewBalance", tokenBalance.Balance }
-                            }
-                        );
-                        await notificationService.SendNotificationToPlayer(null, hubContext, id, purchaseNotification);
-                    }
+                    var purchaseNotification = notificationService.CreateNotification(
+                        PushNotificationId.StorefrontBalancePurchase,
+                        id: storefrontItem.Id,
+                        toAccountId: id,
+                        data: new Dictionary<string, object>
+                        {
+                            { "ItemId", buyRequest.PurchasableItemId },
+                            { "Price", price.Price },
+                            { "CurrencyType", buyRequest.CurrencyType },
+                            { "NewBalance", tokenBalance.Balance }
+                        }
+                    );
+                    await notificationService.SendNotificationToPlayer(id, purchaseNotification);
                 }
-                catch { }
+                catch (Exception notifEx)
+                {
+                    Console.WriteLine($"Error sending purchase notification: {notifEx.Message}");
+                }
+
 
                 return Results.Ok(response);
             }
@@ -1501,7 +1510,6 @@ public class APIController
                     }
                 }
 
-                // Get all earnable rewards for this context
                 var earnableRewards = await db.EarnableRewards
                     .Where(er => er.RewardContext == giftContext)
                     .ToListAsync();
@@ -1515,30 +1523,25 @@ public class APIController
                 int giftRarity = 0;
                 string consumableItemDesc = "";
 
-                // 60/40 roll - 60% earnable item, 40% tokens
                 bool isEarnableItem = random.Next(0, 100) < 60;
 
                 if (isEarnableItem && earnableRewards.Any())
                 {
-                    // Get rewards that are avatar items (have avatarItemDesc set)
                     var avatarRewards = earnableRewards.Where(er => !string.IsNullOrEmpty(er.AvatarItemDesc)).ToList();
 
                     if (avatarRewards.Any())
                     {
-                        // Get all avatar items the player currently owns
                         var ownedAvatarItems = await db.AvatarItems
                             .Where(ai => ai.OwnerAccountId == id)
                             .Select(ai => ai.AvatarItemDesc)
                             .ToListAsync();
 
-                        // Filter to rewards the player doesn't own
                         var unownedRewards = avatarRewards
                             .Where(ar => !ownedAvatarItems.Contains(ar.AvatarItemDesc))
                             .ToList();
 
                         if (unownedRewards.Any())
                         {
-                            // Randomly select one of the unowned rewards
                             var selectedReward = unownedRewards[random.Next(unownedRewards.Count)];
                             avatarItemDesc = selectedReward.AvatarItemDesc;
                             friendlyName = selectedReward.FriendlyName;
@@ -1547,28 +1550,23 @@ public class APIController
                         }
                         else
                         {
-                            // Player owns all avatar items, give token box instead
                             isEarnableItem = false;
                         }
                     }
                     else
                     {
-                        // No avatar rewards, give token box instead
                         isEarnableItem = false;
                     }
                 }
 
-                // If not earnable item or player owns all items, generate a token box
                 if (!isEarnableItem)
                 {
-                    int[] tokenAmounts = { 10, 25, 50, 100, 250, 500 };
+                    int[] tokenAmounts = {10, 25, 50, 100, 250, 500};
                     currency = tokenAmounts[random.Next(tokenAmounts.Length)];
                     currencyType = 2;
-                    consumableItemDesc = $"TokenBox_{currency}";
                     giftRarity = 20;
                 }
                 
-                // Create the received gift record
                 var receivedGift = new ReceivedGift
                 {
                     ReceiverAccountId = id,
@@ -1640,7 +1638,6 @@ public class APIController
                 if (string.IsNullOrEmpty(accountId) || !int.TryParse(accountId.AsSpan(), out var id))
                     return Results.Unauthorized();
 
-                // Parse form data
                 request.EnableBuffering();
                 request.Body.Position = 0;
                 using var reader = new StreamReader(request.Body);
@@ -1669,7 +1666,6 @@ public class APIController
                     return Results.BadRequest(new { success = false, error = "Invalid gift ID" });
                 }
 
-                // Look for the ReceivedGift
                 var receivedGift = await db.ReceivedGifts
                     .FirstOrDefaultAsync(rg => rg.Id == giftId && rg.ReceiverAccountId == id);
 
@@ -1678,7 +1674,6 @@ public class APIController
                     return Results.NotFound(new { success = false, error = "Gift not found" });
                 }
 
-                // Process the gift based on its properties
                 if (!string.IsNullOrEmpty(receivedGift.ConsumableItemDesc))
                 {
                     var existingConsumable = await db.ConsumableItems
@@ -1719,44 +1714,69 @@ public class APIController
                     };
                     db.AvatarItems.Add(avatarItem);
                 }
+                
+                if (!string.IsNullOrEmpty(receivedGift.Currency.ToString()) && receivedGift.CurrencyType == 2)
+                {
+                    var tokenBalance = await db.TokenBalances
+                        .FirstOrDefaultAsync(tb => tb.Id == id && 
+                                                  tb.CurrencyType == receivedGift.CurrencyType && 
+                                                  tb.BalanceType == -1);
 
-                // Mark the gift as consumed
+                    if (tokenBalance == null)
+                    {
+                        tokenBalance = new TokenBalance
+                        {
+                            Id = id,
+                            CurrencyType = receivedGift.CurrencyType,
+                            BalanceType = -1,
+                            Balance = receivedGift.Currency
+                        };
+                        db.TokenBalances.Add(tokenBalance);
+                    }
+                    else
+                    {
+                        tokenBalance.Balance += receivedGift.Currency;
+                        db.TokenBalances.Update(tokenBalance);
+                    }
+                }
+
                 receivedGift.IsConsumed = true;
                 receivedGift.ConsumedAt = DateTime.UtcNow;
                 db.ReceivedGifts.Update(receivedGift);
 
                 await db.SaveChangesAsync();
 
-                // Send notifications based on what was added
                 try
                 {
-                    var hubContext = app.Services.GetService<IHubContext>();
-                    if (hubContext != null)
+                    if (!string.IsNullOrEmpty(receivedGift.ConsumableItemDesc))
                     {
-                        if (!string.IsNullOrEmpty(receivedGift.ConsumableItemDesc))
-                        {
-                            var consumableNotification = notificationService.CreateNotification(
-                                PushNotificationId.ConsumableMappingAdded,
-                                id: giftId,
-                                toAccountId: id,
-                                data: new Dictionary<string, object>
-                                {
-                                    { "Id", (long)giftId },
-                                    { "ConsumableItemDesc", receivedGift.ConsumableItemDesc },
-                                    { "PlatformMask", -1 },
-                                    { "CreatedAt", DateTime.UtcNow },
-                                    { "Count", 1 },
-                                    { "InitialCount", 1 },
-                                    { "UnlockedLevel", 0 },
-                                    { "IsActive", false },
-                                    { "ActiveDurationMinutes", null }
-                                }
-                            );
-                            await notificationService.SendNotificationToPlayer(null, hubContext, id, consumableNotification);
-                        }
+                        var consumableNotification = notificationService.CreateNotification(
+                            PushNotificationId.ConsumableMappingAdded,
+                            id: giftId,
+                            toAccountId: id,
+                            data: new Dictionary<string, object>
+                            {
+                                { "Id", giftId },
+                                { "ConsumableType", "JfnVXFmilU6ysv-VbTAe3A" },
+                                { "PlatformMask", 4294967295 },
+                                { "Count", 1 },
+                                { "InitialCount", 1 },
+                                { "UnlockedLevel", 0 },
+                                { "CreatedAt", DateTime.UtcNow },
+                                { "IsActive", false },
+                                { "ActiveDurationMinutes", null },
+                                { "Category", 0 },
+                                { "IsPlatformLocked", false }
+                            }
+                        );
+                        await notificationService.SendNotificationToPlayer(id, consumableNotification);
                     }
                 }
-                catch { }
+                catch (Exception notifEx)
+                {
+                    // Log the error but don't fail the gift consumption
+                    Console.WriteLine($"Error sending notification: {notifEx.Message}");
+                }
 
                 return Results.Ok(new { success = true });
             }

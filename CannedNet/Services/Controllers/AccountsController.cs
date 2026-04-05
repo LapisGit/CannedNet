@@ -16,7 +16,7 @@ public class AccountsController
             return Results.Ok("FUCKL MYSJDIOJD");
         });
         
-        app.MapGet("/account/me", (HttpRequest request, AppDbContext db) =>
+        app.MapGet("/account/me", async (HttpRequest request, AppDbContext db) =>
         {
             var authHeader = request.Headers.Authorization.ToString();
     
@@ -32,17 +32,21 @@ public class AccountsController
             if (!int.TryParse(accountId.AsSpan(), out var id))
                 return Results.Unauthorized();
 
+            var account = await db.Accounts.FindAsync(id);
+            if (account == null)
+                return Results.NotFound();
+
             var selfAccount = new SelfAccount
             {
                 AccountId = id,
-                ProfileImage = "hdqeamlcmatc6qzoi2ybgf0ddijjcf.jpg",
-                IsJunior = false,
-                Platforms = 0,
-                PersonalPronouns = 0,
-                IdentityFlags = 0,
-                Username = $"Player{id}",
-                DisplayName = $"Player{id}",
-                CreatedAt = DateTime.UtcNow,
+                ProfileImage = account.ProfileImage ?? "hdqeamlcmatc6qzoi2ybgf0ddijjcf.jpg",
+                IsJunior = account.IsJunior,
+                Platforms = account.Platforms ?? 0,
+                PersonalPronouns = account.PersonalPronouns ?? 0,
+                IdentityFlags = account.IdentityFlags ?? 0,
+                Username = account.Username ?? $"Player{id}",
+                DisplayName = account.DisplayName ?? $"Player{id}",
+                CreatedAt = account.CreatedAt,
                 Email = null,
                 Phone = null,
                 JuniorState = null,
@@ -54,54 +58,62 @@ public class AccountsController
             return Results.Ok(selfAccount);
         });
 
-        app.MapGet("/account/bulk", (HttpRequest request) =>
+        app.MapGet("/account/bulk", async (HttpRequest request, AppDbContext db) =>
         {
             var ids = request.Query["id"];
-            var accounts = new List<Account>();
+            var accountIds = new List<int>();
 
             foreach (var id in ids)
             {
                 if (int.TryParse(id, out var accountId))
                 {
-                    accounts.Add(new Account
-                    {
-                        AccountId = accountId,
-                        ProfileImage = "hdqeamlcmatc6qzoi2ybgf0ddijjcf.jpg",
-                        IsJunior = false,
-                        Platforms = 0,
-                        PersonalPronouns = 0,
-                        IdentityFlags = 0,
-                        Username = $"Player{accountId}",
-                        DisplayName = $"Player{accountId}",
-                        CreatedAt = DateTime.UtcNow
-                    });
+                    accountIds.Add(accountId);
                 }
             }
 
-            return Results.Json(accounts);
+            var accounts = await db.Accounts
+                .Where(a => accountIds.Contains(a.AccountId.Value))
+                .ToListAsync();
+
+            var result = accounts.Select(a => new Account
+            {
+                AccountId = a.AccountId,
+                ProfileImage = a.ProfileImage ?? "hdqeamlcmatc6qzoi2ybgf0ddijjcf.jpg",
+                IsJunior = a.IsJunior,
+                Platforms = a.Platforms ?? 0,
+                PersonalPronouns = a.PersonalPronouns ?? 0,
+                IdentityFlags = a.IdentityFlags ?? 0,
+                Username = a.Username ?? $"Player{a.AccountId}",
+                DisplayName = a.DisplayName ?? $"Player{a.AccountId}",
+                CreatedAt = a.CreatedAt
+            }).ToList();
+
+            return Results.Json(result);
         });
         
-        app.MapGet("/account/{id}", (HttpRequest request, string id) =>
+        app.MapGet("/account/{id}", async (HttpRequest request, string id, AppDbContext db) =>
         {
-            var accounts = new Account();
-            
-            if (int.TryParse(id, out var accountId))
-            {
-                accounts = new Account
-                {
-                    AccountId = accountId,
-                    ProfileImage = "hdqeamlcmatc6qzoi2ybgf0ddijjcf.jpg",
-                    IsJunior = false,
-                    Platforms = 0,
-                    PersonalPronouns = 0,
-                    IdentityFlags = 0,
-                    Username = $"Player{accountId}",
-                    DisplayName = $"Player{accountId}",
-                    CreatedAt = DateTime.UtcNow
-                };
-            }
+            if (!int.TryParse(id, out var accountId))
+                return Results.BadRequest();
 
-            return Results.Json(accounts);
+            var account = await db.Accounts.FindAsync(accountId);
+            if (account == null)
+                return Results.NotFound();
+
+            var result = new Account
+            {
+                AccountId = account.AccountId,
+                ProfileImage = account.ProfileImage ?? "hdqeamlcmatc6qzoi2ybgf0ddijjcf.jpg",
+                IsJunior = account.IsJunior,
+                Platforms = account.Platforms ?? 0,
+                PersonalPronouns = account.PersonalPronouns ?? 0,
+                IdentityFlags = account.IdentityFlags ?? 0,
+                Username = account.Username ?? $"Player{account.AccountId}",
+                DisplayName = account.DisplayName ?? $"Player{account.AccountId}",
+                CreatedAt = account.CreatedAt
+            };
+
+            return Results.Json(result);
         });
         
         app.MapPost("/account/create", async (HttpRequest httpRequest, AppDbContext db) =>
@@ -175,7 +187,7 @@ public class AccountsController
             var maxRoomId = await db.Rooms.MaxAsync(r => (int?)r.RoomId) ?? 0;
             var maxId = await db.Rooms.MaxAsync(r => (int?)r.Id) ?? 0;
             var dormRoomId = maxRoomId + 1;
-            var dormRoom = new Room
+            var dormRoom = new Room 
             {
                 Id = maxId + 1,
                 RoomId = dormRoomId,
@@ -300,7 +312,146 @@ public class AccountsController
             account.DisplayName = newDisplayName;
             await db.SaveChangesAsync();
 
-            return Results.Ok();
+            return Results.Ok(RecNetResult.Ok());
+        });
+        
+        app.MapPut("/account/me/username", async (HttpRequest request, AppDbContext db) =>
+        {
+            var authHeader = request.Headers.Authorization.ToString();
+    
+            if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                return Results.Unauthorized();
+
+            var token = authHeader.Substring("Bearer ".Length);
+            var accountId = jwtService.ValidateAndGetAccountId(token);
+
+            if (string.IsNullOrEmpty(accountId))
+                return Results.Unauthorized();
+
+            if (!int.TryParse(accountId.AsSpan(), out var id))
+                return Results.Unauthorized();
+
+            string newAccountName = "";
+            
+            if (request.ContentLength.HasValue && request.ContentLength > 0)
+            {
+                try
+                {
+                    request.EnableBuffering();
+                    using var reader = new StreamReader(request.Body, leaveOpen: true);
+                    var body = await reader.ReadToEndAsync();
+                    
+                    if (!string.IsNullOrWhiteSpace(body))
+                    {
+                        foreach (var pair in body.Split('&'))
+                        {
+                            var keyValue = pair.Split('=');
+                            if (keyValue.Length == 2)
+                            {
+                                var key = Uri.UnescapeDataString(keyValue[0]);
+                                var value = Uri.UnescapeDataString(keyValue[1]);
+
+                                if (key == "username")
+                                    newAccountName = value;
+                            }
+                        }
+                    }
+                    request.Body.Position = 0;
+                }
+                catch { }
+            }
+
+            var account = await db.Accounts.FindAsync(id);
+            if (account == null)
+                return Results.NotFound();
+
+            account.Username = newAccountName;
+            await db.SaveChangesAsync();
+
+            return Results.Ok(RecNetResult.Ok());
+        });
+
+        app.MapGet("/account/{id}/bio", async (HttpRequest request, string id, AppDbContext db) =>
+        {
+            if (!int.TryParse(id, out var accountId))
+                return Results.BadRequest();
+
+            var bio = await db.PlayerBios.FirstOrDefaultAsync(b => b.accountId == accountId);
+            
+            if (bio == null)
+            {
+                return Results.Json(new { accountId = accountId, bio = "" });
+            }
+
+            return Results.Json(new { accountId = bio.accountId, bio = bio.bio });
+        });
+
+        app.MapPut("/account/me/bio", async (HttpRequest request, AppDbContext db) =>
+        {
+            var authHeader = request.Headers.Authorization.ToString();
+    
+            if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                return Results.Unauthorized();
+
+            var token = authHeader.Substring("Bearer ".Length);
+            var accountId = jwtService.ValidateAndGetAccountId(token);
+
+            if (string.IsNullOrEmpty(accountId))
+                return Results.Unauthorized();
+
+            if (!int.TryParse(accountId.AsSpan(), out var id))
+                return Results.Unauthorized();
+
+            string newBio = "";
+            
+            if (request.ContentLength.HasValue && request.ContentLength > 0)
+            {
+                try
+                {
+                    request.EnableBuffering();
+                    using var reader = new StreamReader(request.Body, leaveOpen: true);
+                    var body = await reader.ReadToEndAsync();
+                    
+                    if (!string.IsNullOrWhiteSpace(body))
+                    {
+                        foreach (var pair in body.Split('&'))
+                        {
+                            var keyValue = pair.Split('=');
+                            if (keyValue.Length == 2)
+                            {
+                                var key = Uri.UnescapeDataString(keyValue[0]);
+                                var value = Uri.UnescapeDataString(keyValue[1]);
+
+                                if (key == "bio")
+                                    newBio = Uri.UnescapeDataString(value);
+                            }
+                        }
+                    }
+                    request.Body.Position = 0;
+                }
+                catch { }
+            }
+
+            var bio = await db.PlayerBios.FirstOrDefaultAsync(b => b.accountId == id);
+            
+            if (bio == null)
+            {
+                bio = new PlayerBio
+                {
+                    accountId = id,
+                    bio = newBio
+                };
+                db.PlayerBios.Add(bio);
+            }
+            else
+            {
+                bio.bio = newBio;
+                db.PlayerBios.Update(bio);
+            }
+
+            await db.SaveChangesAsync();
+
+            return Results.Json(new { success = true });
         });
     }
 }

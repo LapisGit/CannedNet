@@ -17,6 +17,21 @@ public class BuyItemRequest
     public int? CouponConsumablePlayerMappingId { get; set; }
     
     [JsonPropertyName("Gift")]
-    public object? Gift { get; set; }
+    public GiftRequest? Gift { get; set; }
+}
+
+public class GiftRequest
+{
+    [JsonPropertyName("ToPlayerId")]
+    public int ToPlayerId { get; set; }
+    
+    [JsonPropertyName("Message")]
+    public string Message { get; set; } = string.Empty;
+    
+    [JsonPropertyName("Anonymous")]
+    public bool Anonymous { get; set; }
+    
+    [JsonPropertyName("GiftContext")]
+    public int GiftContext { get; set; }
 }
 

@@ -17,32 +17,39 @@ public class MatchmakingController
         
         app.MapPost("/player/login", () => Results.Ok());
         
-        app.MapGet("/player", (HttpRequest request) =>
+        app.MapGet("/player", async (HttpRequest request, AppDbContext db) =>
         {
-            /*
-            var id = request.Query["id"];
-            var accounts = new List<Account>();
-
-            if (int.TryParse(id, out var accountId))
+            var id = request.Query["id"].FirstOrDefault();
+            if (string.IsNullOrEmpty(id) || !int.TryParse(id, out var accountId))
             {
-                accounts.Add(new Account
-                {
-                    AccountId = accountId,
-                    ProfileImage = "hdqeamlcmatc6qzoi2ybgf0ddijjcf.jpg",
-                    IsJunior = false,
-                    Platforms = 0,
-                    PersonalPronouns = 0,
-                    IdentityFlags = 0,
-                    Username = $"Player{accountId}",
-                    DisplayName = $"Player{accountId}",
-                    CreatedAt = DateTime.UtcNow
-                });
+                var json = File.ReadAllText("JSON/getplayer.json");
+                return Results.Content(json, "application/json");
             }
 
-            return Results.Json(accounts);*/
-        
-            var json = File.ReadAllText("JSON/getplayer.json");
-            return Results.Content(json, "application/json");
+            var account = await db.Accounts.FindAsync(accountId);
+            if (account == null)
+            {
+                var json = File.ReadAllText("JSON/getplayer.json");
+                return Results.Content(json, "application/json");
+            }
+
+            var result = new List<Account>
+            {
+                new Account
+                {
+                    AccountId = account.AccountId,
+                    ProfileImage = account.ProfileImage ?? "hdqeamlcmatc6qzoi2ybgf0ddijjcf.jpg",
+                    IsJunior = account.IsJunior,
+                    Platforms = account.Platforms ?? 0,
+                    PersonalPronouns = account.PersonalPronouns ?? 0,
+                    IdentityFlags = account.IdentityFlags ?? 0,
+                    Username = account.Username ?? $"Player{account.AccountId}",
+                    DisplayName = account.DisplayName ?? $"Player{account.AccountId}",
+                    CreatedAt = account.CreatedAt
+                }
+            };
+
+            return Results.Json(result);
         });
 
         app.MapPost("/goto/room/{room}", async (HttpRequest request, string room, AppDbContext db) =>
