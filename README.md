@@ -7,6 +7,7 @@ Lots of data and stuff like the photon servers listed here are Radium's servers,
 
 TODO:
 
+- Organize the project (again)
 - Player Display Name/@ Name/PFP changing
 - Outfit saving
 - CDN server
