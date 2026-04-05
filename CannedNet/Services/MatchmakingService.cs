@@ -83,62 +83,75 @@ public class MatchmakingService
             int subRoomId = subRoom?.SubRoomId ?? 0;
             int maxCapacity = subRoom?.MaxPlayers ?? 4;
 
-            var publicInstance = await db.RoomInstances
-                .FirstOrDefaultAsync(r => r.roomId == roomData.RoomId && !r.isPrivate && !r.isFull);
 
             RoomInstance? instanceToUse;
             string photonRoomId;
 
-            if (publicInstance != null)
+            // Check if player already has an instance in this room
+            var existingInstance = await db.RoomInstances.FirstOrDefaultAsync(r => r.OwnerAccountId == id && r.roomId == roomData.RoomId);
+            
+            if (existingInstance != null)
             {
-                photonRoomId = publicInstance.photonRoomId ?? Guid.NewGuid().ToString();
-                publicInstance.photonRoomId = photonRoomId;
-                publicInstance.roomInstanceId = publicInstance.Id;
-                instanceToUse = publicInstance;
+                // Player already has an instance in this room, update it
+                photonRoomId = existingInstance.photonRoomId ?? Guid.NewGuid().ToString();
+                existingInstance.roomInstanceId = existingInstance.Id;
+                existingInstance.roomId = roomData.RoomId;
+                existingInstance.subRoomId = subRoomId;
+                existingInstance.location = location;
+                existingInstance.dataBlob = "";
+                existingInstance.photonRegionId = "us";
+                existingInstance.photonRoomId = photonRoomId;
+                existingInstance.name = roomData.Name;
+                existingInstance.maxCapacity = maxCapacity;
+                existingInstance.isFull = false;
+                existingInstance.isPrivate = false;
+                instanceToUse = existingInstance;
             }
             else
             {
                 photonRoomId = Guid.NewGuid().ToString();
                 
-                var existingInstance = await db.RoomInstances.FirstOrDefaultAsync(r => r.OwnerAccountId == id && r.roomId == roomData.RoomId);
+                var oldInstances = await db.RoomInstances
+                    .Where(r => r.OwnerAccountId == id && r.roomId != roomData.RoomId)
+                    .ToListAsync();
+                db.RoomInstances.RemoveRange(oldInstances);
                 
-                if (existingInstance != null)
+                var publicInstance = await db.RoomInstances
+                    .FirstOrDefaultAsync(r => r.roomId == roomData.RoomId && !r.isPrivate && !r.isFull);
+                
+                if (publicInstance != null)
                 {
-                    existingInstance.roomInstanceId = existingInstance.Id;
-                    existingInstance.roomId = roomData.RoomId;
-                    existingInstance.subRoomId = subRoomId;
-                    existingInstance.location = location;
-                    existingInstance.dataBlob = "";
-                    existingInstance.photonRegionId = "us";
-                    existingInstance.photonRoomId = photonRoomId;
-                    existingInstance.name = roomData.Name;
-                    existingInstance.maxCapacity = maxCapacity;
-                    existingInstance.isFull = false;
-                    existingInstance.isPrivate = false;
-                    instanceToUse = existingInstance;
+                    photonRoomId = publicInstance.photonRoomId ?? Guid.NewGuid().ToString();
                 }
-                else
+                
+                if (room == "DormRoom")
                 {
-                    instanceToUse = new RoomInstance
+                    var playerDorm = await db.Rooms.FirstOrDefaultAsync(r => r.IsDorm && r.CreatorAccountId == id);
+                    if (playerDorm != null)
                     {
-                        OwnerAccountId = id,
-                        roomInstanceId = 1,
-                        roomId = roomData.RoomId,
-                        subRoomId = subRoomId,
-                        roomInstanceType = 2,
-                        location = location,
-                        dataBlob = "",
-                        photonRegionId = "us",
-                        photonRoomId = photonRoomId,
-                        name = roomData.Name,
-                        maxCapacity = maxCapacity,
-                        isFull = false,
-                        isPrivate = roomData.RoomId == 1,
-                        isInProgress = false,
-                        EncryptVoiceChat = roomData.EncryptVoiceChat
-                    };
-                    db.RoomInstances.Add(instanceToUse);
+                        roomData.RoomId = playerDorm.RoomId;
+                    }
                 }
+                
+                instanceToUse = new RoomInstance
+                {
+                    OwnerAccountId = id,
+                    roomInstanceId = 1,
+                    roomId = roomData.RoomId,
+                    subRoomId = subRoomId,
+                    roomInstanceType = 2,
+                    location = location,
+                    dataBlob = "",
+                    photonRegionId = "us",
+                    photonRoomId = photonRoomId,
+                    name = roomData.Name,
+                    maxCapacity = maxCapacity,
+                    isFull = false,
+                    isPrivate = roomData.IsDorm || roomData.RoomId == 1, // Private if it's a dorm or special room
+                    isInProgress = false,
+                    EncryptVoiceChat = roomData.EncryptVoiceChat
+                };
+                db.RoomInstances.Add(instanceToUse);
             }
             
             await db.SaveChangesAsync();
@@ -167,7 +180,7 @@ public class MatchmakingService
                     name = instanceToUse?.name ?? roomData.Name,
                     maxCapacity = instanceToUse?.maxCapacity ?? maxCapacity,
                     isFull = instanceToUse?.isFull ?? false,
-                    isPrivate = roomData.RoomId == 1 ? true : (instanceToUse?.isPrivate ?? false),
+                    isPrivate = (roomData.IsDorm || roomData.RoomId == 1) ? true : (instanceToUse?.isPrivate ?? false),
                     isInProgress = instanceToUse?.isInProgress ?? false,
                     EncryptVoiceChat = instanceToUse?.EncryptVoiceChat ?? roomData.EncryptVoiceChat
                 }
@@ -239,10 +252,12 @@ public class MatchmakingService
             if (heartbeat == null)
                 heartbeat = new HeartbeatRequest();
 
+            // Get the player's active room instance (most recent one)
             var roomInstance = await db.RoomInstances
                 .Where(r => r.OwnerAccountId == id)
                 .OrderByDescending(r => r.Id)
                 .FirstOrDefaultAsync();
+
 
             return Results.Json(new
             {
@@ -250,7 +265,7 @@ public class MatchmakingService
                 statusVisibility = heartbeat.statusVisibility,
                 deviceClass = heartbeat.deviceClass,
                 vrMovementMode = heartbeat.vrMovementMode != 0 ? heartbeat.vrMovementMode : 1,
-                roomInstance = roomInstance != null ? new RoomInstance()
+                roomInstance = roomInstance != null ? new
                 {
                     roomInstanceId = roomInstance.Id > 0 ? roomInstance.Id : roomInstance.roomInstanceId,
                     roomId = roomInstance.roomId,

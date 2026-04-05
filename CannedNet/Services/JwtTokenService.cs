@@ -106,5 +106,26 @@ public class JwtTokenService
             return null;
         }
     }
-}
 
+    public int? GetAccountIdFromContext(HttpContext context)
+    {
+        try
+        {
+            var authHeader = context.Request.Headers.Authorization.ToString();
+            if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                return null;
+
+            var token = authHeader.Substring("Bearer ".Length);
+            var accountId = ValidateAndGetAccountId(token);
+            
+            if (string.IsNullOrEmpty(accountId) || !int.TryParse(accountId, out var id))
+                return null;
+            
+            return id;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+}

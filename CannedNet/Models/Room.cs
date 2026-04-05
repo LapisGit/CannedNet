@@ -2,6 +2,14 @@ using System.Text.Json.Serialization;
 
 namespace CannedNet;
 
+public class RoomTag
+{
+    [JsonPropertyName("tag")]
+    public string Tag { get; set; } = "";
+    [JsonPropertyName("type")]
+    public int Type { get; set; }
+}
+
 public class Room
 {
     public int Id { get; set; }

@@ -18,6 +18,7 @@ public static class ServiceExtensions
 
         builder.Services.AddScoped<JwtTokenService>();
         builder.Services.AddSingleton<NotificationService>();
+        builder.Services.AddScoped<StorefrontFillService>();
         builder.Services.AddSignalR();
     }
 

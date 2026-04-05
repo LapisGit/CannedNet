@@ -1,4 +1,5 @@
 using CannedNet.Data;
+using Microsoft.EntityFrameworkCore;
 
 namespace CannedNet.Services;
 
@@ -165,6 +166,59 @@ public class AccountsService
                     RequirePassword = false
                 });
             }
+
+            await db.SaveChangesAsync();
+
+            // create players dorm room
+            var maxRoomId = await db.Rooms.MaxAsync(r => (int?)r.RoomId) ?? 0;
+            var maxId = await db.Rooms.MaxAsync(r => (int?)r.Id) ?? 0;
+            var dormRoomId = maxRoomId + 1;
+            var dormRoom = new Room
+            {
+                Id = maxId + 1,
+                RoomId = dormRoomId,
+                Name = "DormRoom",
+                Description = "Your personal room",
+                CreatorAccountId = accountId,
+                ImageName = "",
+                State = 0,
+                Accessibility = 0,
+                SupportsLevelVoting = false,
+                IsRRO = false,
+                IsDorm = true,
+                CloningAllowed = false,
+                SupportsVRLow = true,
+                SupportsQuest2 = true,
+                SupportsMobile = true,
+                SupportsScreens = true,
+                SupportsWalkVR = true,
+                SupportsTeleportVR = true,
+                SupportsJuniors = true,
+                MinLevel = 0,
+                WarningMask = 0,
+                CustomWarning = null,
+                DisableMicAutoMute = false,
+                DisableRoomComments = false,
+                EncryptVoiceChat = false,
+                CreatedAt = DateTime.UtcNow,
+                Tags = "[]"
+            };
+            db.Rooms.Add(dormRoom);
+
+            // Create a sub room for the dorm
+            var dormSubRoom = new SubRoom
+            {
+                RoomId = dormRoomId,
+                SubRoomId = 1,
+                Name = "DormRoom",
+                DataBlob = "",
+                IsSandbox = false,
+                MaxPlayers = 4,
+                Accessibility = 0,
+                UnitySceneId = "76d98498-60a1-430c-ab76-b54a29b7a163", // Dorm scene ID
+                DataSavedAt = DateTime.UtcNow
+            };
+            db.SubRooms.Add(dormSubRoom);
 
             await db.SaveChangesAsync();
 

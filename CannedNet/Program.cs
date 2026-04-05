@@ -22,7 +22,20 @@ foreach (var service in Services.All)
 }
 
 using var scope = apps[0].App.Services.CreateScope();
-scope.ServiceProvider.GetRequiredService<CannedNet.Data.AppDbContext>().Database.Migrate();
+var dbContext = scope.ServiceProvider.GetRequiredService<CannedNet.Data.AppDbContext>();
+try
+{
+    dbContext.Database.Migrate();
+}
+catch (Exception ex)
+{
+    dbContext.Database.EnsureCreated();
+}
+
+// automatically fill out storefronts tables from the JSON's
+var seedingService = scope.ServiceProvider.GetRequiredService<StorefrontFillService>();
+await seedingService.FillStorefrontsAsync();
+
 var jwtService = scope.ServiceProvider.GetRequiredService<JwtTokenService>();
 
 foreach (var (app, service) in apps)

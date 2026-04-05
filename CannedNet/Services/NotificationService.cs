@@ -7,6 +7,12 @@ public class NotificationService
 {
     private readonly ConcurrentDictionary<string, HashSet<int>> _connectionSubscriptions = new();
     private readonly ConcurrentDictionary<int, HashSet<string>> _playerConnections = new();
+    private readonly ILogger<NotificationService> _logger;
+
+    public NotificationService(ILogger<NotificationService> logger)
+    {
+        _logger = logger;
+    }
 
     public void OnConnected(string connectionId)
     {
@@ -86,19 +92,40 @@ public class NotificationService
 
     public async Task SendNotificationToPlayer(string callerConnectionId, IHubContext hubContext, int playerId, NotificationMessage notification)
     {
-        var connections = GetConnectionsForPlayer(playerId);
-        foreach (var connectionId in connections)
+        try
         {
-            if (connectionId == callerConnectionId)
-                continue;
+            var connections = GetConnectionsForPlayer(playerId);
+            foreach (var connectionId in connections)
+            {
+                if (connectionId == callerConnectionId)
+                    continue;
 
-            await hubContext.Clients.Client(connectionId).SendAsync("Notification", notification);
+                try
+                {
+                    await hubContext.Clients.Client(connectionId).SendAsync("Notification", notification);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, $"Error sending notification to player {playerId} on connection {connectionId}. NotificationType: {notification.NotificationType}");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Error sending notification to player {playerId}. NotificationType: {notification.NotificationType}");
         }
     }
 
     public async Task BroadcastNotification(IHubContext hubContext, NotificationMessage notification)
     {
-        await hubContext.Clients.All.SendAsync("Notification", notification);
+        try
+        {
+            await hubContext.Clients.All.SendAsync("Notification", notification);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Error broadcasting notification. NotificationType: {notification.NotificationType}");
+        }
     }
 
     public NotificationMessage CreateNotification(PushNotificationId notificationType, int? id = null, int? fromAccountId = null, int? toAccountId = null, Dictionary<string, object>? data = null)

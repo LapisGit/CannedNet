@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using CannedNet.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace CannedNet.Data;
 
@@ -22,6 +23,15 @@ public class AppDbContext : DbContext
     public DbSet<PromoImage> PromoImages { get; set; }
     public DbSet<PromoExternalContent> PromoExternalContents { get; set; }
     public DbSet<RoomRole> RoomRoles { get; set; }
+    public DbSet<TokenBalance> TokenBalances { get; set; }
+    public DbSet<PlayerBio>  PlayerBios { get; set; }
+    public DbSet<Storefront> Storefronts { get; set; }
+    public DbSet<StorefrontItem> StorefrontItems { get; set; }
+    public DbSet<GiftDrop> GiftDrops { get; set; }
+    public DbSet<StorefrontPrice> StorefrontPrices { get; set; }
+    public DbSet<ConsumableItem> ConsumableItems { get; set; }
+    public DbSet<ReceivedGift> ReceivedGifts { get; set; }
+    public DbSet<EarnableReward> EarnableRewards { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -42,7 +52,7 @@ public class AppDbContext : DbContext
         {
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
-            entity.HasIndex(e => new { e.Platform, e.PlatformID }).IsUnique();
+            entity.HasIndex(e => new { e.Platform, e.PlatformID });
             entity.ToTable("cached_logins");
         });
 
@@ -167,6 +177,103 @@ public class AppDbContext : DbContext
             entity.Property(e => e.RoomId).IsRequired();
             entity.HasIndex(e => e.RoomId);
             entity.ToTable("room_roles");
+        });
+        
+        // token_balances
+        modelBuilder.Entity<TokenBalance>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).IsRequired();
+            entity.ToTable("token_balances");
+        });
+        
+        // player_bios
+        modelBuilder.Entity<PlayerBio>(entity =>
+        {
+            entity.HasKey(e => e.accountId);
+            entity.Property(e => e.accountId).IsRequired();
+            entity.ToTable("player_bios");
+        });
+
+        // storefronts
+        modelBuilder.Entity<Storefront>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.ToTable("storefronts");
+        });
+
+        // storefront_items
+        modelBuilder.Entity<StorefrontItem>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.StorefrontId).IsRequired();
+            entity.HasIndex(e => e.StorefrontId);
+            entity.ToTable("storefront_items");
+        });
+
+        // gift_drops
+        modelBuilder.Entity<GiftDrop>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.StorefrontItemId).IsRequired();
+            entity.HasIndex(e => e.StorefrontItemId);
+            entity.ToTable("gift_drops");
+        });
+
+        // storefront_prices
+        modelBuilder.Entity<StorefrontPrice>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.StorefrontItemId).IsRequired();
+            entity.HasIndex(e => e.StorefrontItemId);
+            entity.ToTable("storefront_prices");
+        });
+
+        // consumable_items
+        modelBuilder.Entity<ConsumableItem>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.OwnerAccountId).IsRequired();
+            entity.Property(e => e.ConsumableItemDesc).IsRequired();
+            entity.HasIndex(e => e.OwnerAccountId);
+            entity.ToTable("consumable_items");
+        });
+
+        // received_gifts
+        modelBuilder.Entity<ReceivedGift>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.ReceiverAccountId).IsRequired();
+            entity.Property(e => e.ConsumableItemDesc).IsRequired();
+            entity.Property(e => e.AvatarItemDesc).IsRequired();
+            entity.Property(e => e.FriendlyName).IsRequired();
+            entity.Property(e => e.EquipmentPrefabName).IsRequired();
+            entity.Property(e => e.EquipmentModificationGuid).IsRequired();
+            entity.Property(e => e.Message).IsRequired();
+            entity.HasIndex(e => e.ReceiverAccountId);
+            entity.HasIndex(e => new { e.ReceiverAccountId, e.IsConsumed });
+            entity.ToTable("received_gifts");
+        });
+
+        // earnable_rewards
+        modelBuilder.Entity<EarnableReward>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.FriendlyName).IsRequired();
+            entity.Property(e => e.RewardContext).IsRequired();
+            entity.Property(e => e.ConsumableItemDesc).IsRequired();
+            entity.Property(e => e.AvatarItemDesc).IsRequired();
+            entity.Property(e => e.AvatarItemType).IsRequired();
+            entity.Property(e => e.GiftRarity).IsRequired();
+            entity.HasIndex(e => e.RewardContext);
+            entity.ToTable("earnable_rewards");
         });
     }
 }

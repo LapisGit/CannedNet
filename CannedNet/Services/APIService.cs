@@ -3,6 +3,9 @@ using CannedNet.Data;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using CannedNet.Hubs;
+using CannedNet.Models;
+using Microsoft.AspNetCore.SignalR;
 
 namespace CannedNet.Services;
 
@@ -13,6 +16,8 @@ public class APIService
     public void MapEndpoints(WebApplication app)
     {
         var jwtService = app.Services.GetRequiredService<JwtTokenService>();
+        var storefrontService = app.Services.GetRequiredService<StorefrontFillService>();
+        var notificationService = app.Services.GetRequiredService<NotificationService>();
 
         app.MapGet("/api/config/v1/amplitude", () => Results.Ok(new
         {
@@ -514,10 +519,23 @@ public class APIService
             // TODO ADD FUNCTIONALITY
             return "[]";
         });
-        app.MapGet("/api/consumables/v2/getUnlocked", async (HttpRequest request, AppDbContext db) =>
+        app.MapGet("/api/consumables/v2/getUnlocked", async (HttpRequest request, AppDbContext db, JwtTokenService jwtService) =>
         {
-            // TODO ADD FUNCTIONALITY
-            return "[]";
+            var authHeader = request.Headers.Authorization.ToString();
+            if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                return Results.Unauthorized();
+
+            var token = authHeader.Substring("Bearer ".Length);
+            var accountId = jwtService.ValidateAndGetAccountId(token);
+
+            if (string.IsNullOrEmpty(accountId) || !int.TryParse(accountId.AsSpan(), out var id))
+                return Results.Unauthorized();
+            
+            var consumables = await db.ConsumableItems
+                .Where(c => c.OwnerAccountId == id)
+                .ToListAsync();
+            
+            return Results.Json(consumables);
         });
         app.MapGet("/api/objectives/v1/myprogress", async (HttpRequest request, AppDbContext db) =>
         {
@@ -525,10 +543,31 @@ public class APIService
             var json = File.ReadAllText("JSON/tempmyprogress.json");
             return Results.Content(json, "application/json");
         });
-        app.MapGet("/api/avatar/v2/gifts", async (HttpRequest request, AppDbContext db) =>
+        app.MapGet("/api/avatar/v2/gifts", async (HttpRequest request, AppDbContext db, JwtTokenService jwtService) =>
         {
-            // TODO ADD FUNCTIONALITY
-            return "[]";
+            try
+            {
+                var authHeader = request.Headers.Authorization.ToString();
+                if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                    return Results.Unauthorized();
+
+                var token = authHeader.Substring("Bearer ".Length);
+                var accountId = jwtService.ValidateAndGetAccountId(token);
+
+                if (string.IsNullOrEmpty(accountId) || !int.TryParse(accountId.AsSpan(), out var id))
+                    return Results.Unauthorized();
+
+                // Get all pending (unconsumed) gifts for this player
+                var pendingGifts = await db.ReceivedGifts
+                    .Where(rg => rg.ReceiverAccountId == id && !rg.IsConsumed)
+                    .ToListAsync();
+
+                return Results.Json(pendingGifts);
+            }
+            catch (Exception ex)
+            {
+                return Results.Problem($"Error retrieving gifts: {ex.Message}");
+            }
         });
         app.MapGet("/api/gamerewards/v1/pending", async (HttpRequest request, AppDbContext db) =>
         {
@@ -551,8 +590,25 @@ public class APIService
         });
         app.MapGet("/api/storefronts/v4/balance/2", async (HttpRequest request, AppDbContext db) =>
         {
-            // TODO ADD FUNCTIONALITY
-            return Results.Json(new List<object> { new { Balance = 99999, CurrencyType = 2, BalanceType = -1, Platform = -1 } });
+            var authHeader = request.Headers.Authorization.ToString();
+    
+            if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                return Results.Unauthorized();
+
+            var token = authHeader.Substring("Bearer ".Length);
+            var accountId = jwtService.ValidateAndGetAccountId(token);
+
+            if (string.IsNullOrEmpty(accountId))
+                return Results.Unauthorized();
+
+            if (!int.TryParse(accountId.AsSpan(), out var id))
+                return Results.Unauthorized();
+            
+            var balance = await db.TokenBalances
+                .Where(s => s.Id == id)
+                .ToListAsync();
+
+            return Results.Json(balance);
         });
         app.MapGet("/api/storefronts/v1/p2p/betaEnabled", async (HttpRequest request, AppDbContext db) =>
         {
@@ -581,8 +637,6 @@ public class APIService
         });
         app.MapGet("/api/accounts/v1/getBio", async (HttpRequest request, AppDbContext db) =>
         {
-            // TODO: store bio's in db
-            
             var authHeader = request.Headers.Authorization.ToString();
             
             if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
@@ -594,7 +648,11 @@ public class APIService
             if (string.IsNullOrEmpty(accountId) || !int.TryParse(accountId.AsSpan(), out var id))
                 return Results.Unauthorized();
 
-            return Results.Json(new { accountId = id, bio = "" });
+            var bio = await db.PlayerBios
+                .Where(s => accountId == accountId)
+                .ToListAsync();
+            
+            return Results.Json(bio);
         });
         app.MapPost("/api/accounts/v1/forplatformids", async (HttpRequest request, AppDbContext db) =>
         {
@@ -633,8 +691,54 @@ public class APIService
         });
         app.MapGet("/api/storefronts/v3/giftdropstore/3", async (HttpRequest request, AppDbContext db) =>
         {
-            var json = File.ReadAllText("JSON/storefront3.json");
-            return Results.Content(json, "application/json");
+            var storefronts = await storefrontService.GetStorefrontsAsync();
+            var storefront = storefronts.FirstOrDefault(s => s.StorefrontType == 2 && s.Name == "watch_store");
+            if (storefront == null)
+            {
+                var json = File.ReadAllText("JSON/storefront3.json");
+                return Results.Content(json, "application/json");
+            }
+            var storeItems = storefront.Items.Select(item => new
+            {
+                item.Id,
+                item.StorefrontId,
+                item.PurchasableItemId,
+                item.Type,
+                item.IsFeatured,
+                item.NewUntil,
+                GiftDrops = item.GiftDrops.Select(gd => new
+                {
+                    gd.Id,
+                    gd.StorefrontItemId,
+                    gd.GiftDropId,
+                    gd.FriendlyName,
+                    gd.Tooltip,
+                    gd.ConsumableItemDesc,
+                    gd.AvatarItemDesc,
+                    gd.AvatarItemType,
+                    gd.EquipmentPrefabName,
+                    gd.EquipmentModificationGuid,
+                    gd.IsQuery,
+                    gd.Unique,
+                    gd.SubscribersOnly,
+                    gd.Level,
+                    gd.Rarity,
+                    gd.CurrencyType,
+                    gd.Currency,
+                    gd.Context,
+                    gd.ItemSetId,
+                    gd.ItemSetFriendlyName
+                }).ToList(),
+                Prices = item.Prices.Select(p => new
+                {
+                    p.Id,
+                    p.StorefrontItemId,
+                    p.CurrencyType,
+                    p.Price
+                }).ToList()
+            }).ToList();
+            var response = new { storefront.Id, storefront.Name, storefront.StorefrontType, storefront.NextUpdate, StoreItems = storeItems };
+            return Results.Ok(response);
         });
         app.MapGet("/api/challenge/v2/getCurrent", async (HttpRequest request, AppDbContext db) =>
         {
@@ -745,6 +849,214 @@ public class APIService
 
             return Results.Json(response);
         });
+
+        app.MapGet("/roomserver/rooms/hot", async (HttpRequest request, AppDbContext db) =>
+        {
+            var tagFilter = request.Query["tag"].FirstOrDefault()?.ToLower();
+            
+            var allRooms = await db.Rooms.ToListAsync();
+
+            if (!string.IsNullOrEmpty(tagFilter))
+            {
+                allRooms = allRooms.Where(r => 
+                {
+                    var roomTags = TryDeserializeRoomTags(r.Tags);
+                    if (roomTags == null || roomTags.Length == 0) return false;
+                    
+                    return roomTags.Any(t => t.Tag.Equals(tagFilter, StringComparison.OrdinalIgnoreCase));
+                }).ToList();
+            }
+
+            var hotRooms = allRooms
+                .OrderByDescending(r => r.Id)
+                .ToList();
+
+            var results = new List<object>();
+
+            foreach (var room in hotRooms)
+            {
+                var subRooms = await db.SubRooms.Where(x => x.RoomId == room.RoomId).ToListAsync();
+                var roles = await db.RoomRoles.Where(x => x.RoomId == room.RoomId).ToListAsync();
+                var loadScreens = await db.LoadScreens.Where(x => x.RoomId == room.RoomId).ToListAsync();
+                var promoImages = await db.PromoImages.Where(x => x.RoomId == room.RoomId).ToListAsync();
+                var external = await db.PromoExternalContents.Where(x => x.RoomId == room.RoomId).ToListAsync();
+                var tags = TryDeserializeTags(room.Tags) ?? new object[0];
+
+                var roomResponse = new
+                {
+                    room.RoomId,
+                    room.Name,
+                    room.Description,
+                    room.CreatorAccountId,
+                    room.ImageName,
+                    room.State,
+                    room.Accessibility,
+                    room.SupportsLevelVoting,
+                    room.IsRRO,
+                    room.IsDorm,
+                    room.CloningAllowed,
+                    room.SupportsVRLow,
+                    room.SupportsQuest2,
+                    room.SupportsMobile,
+                    room.SupportsScreens,
+                    room.SupportsWalkVR,
+                    room.SupportsTeleportVR,
+                    room.SupportsJuniors,
+                    room.MinLevel,
+                    room.WarningMask,
+                    room.CustomWarning,
+                    room.DisableMicAutoMute,
+                    room.DisableRoomComments,
+                    room.EncryptVoiceChat,
+                    room.CreatedAt,
+                    Stats = (object?)null,
+                    SubRooms = subRooms.Select(s => new
+                    {
+                        s.SubRoomId,
+                        s.RoomId,
+                        s.Name,
+                        s.DataBlob,
+                        s.IsSandbox,
+                        s.MaxPlayers,
+                        s.Accessibility,
+                        s.UnitySceneId,
+                        s.DataSavedAt
+                    }),
+                    Roles = roles.Select(r => new
+                    {
+                        r.AccountId,
+                        r.Role,
+                        r.InvitedRole
+                    }),
+                    LoadScreens = loadScreens.Select(ls => new
+                    {
+                        ls.ImageUrl,
+                        ls.Tooltip,
+                        ls.IsThumbnail
+                    }),
+                    PromoImages = promoImages.Select(pi => new
+                    {
+                        pi.ImageUrl,
+                        pi.Tooltip,
+                        pi.SortOrder
+                    }),
+                    PromoExternalContent = external.Select(ec => new
+                    {
+                        ec.Type,
+                        ec.Url,
+                        ec.Tooltip
+                    }),
+                    Tags = tags
+                };
+                results.Add(roomResponse);
+            }
+
+            var response = new
+            {
+                Results = results,
+                TotalResults = results.Count
+            };
+
+            return Results.Json(response);
+        });
+
+        app.MapGet("/roomserver/roomsandplaylists/hot", async (HttpRequest request, AppDbContext db) =>
+        {
+            // should sort by popularity but idk how to yet so we just d it by id order
+            var allRooms = await db.Rooms
+                .Where(r => !r.IsDorm)
+                .OrderByDescending(r => r.Id)
+                .ToListAsync();
+
+            var results = new List<object>();
+
+            foreach (var room in allRooms)
+            {
+                var subRooms = await db.SubRooms.Where(x => x.RoomId == room.RoomId).ToListAsync();
+                var roles = await db.RoomRoles.Where(x => x.RoomId == room.RoomId).ToListAsync();
+                var loadScreens = await db.LoadScreens.Where(x => x.RoomId == room.RoomId).ToListAsync();
+                var promoImages = await db.PromoImages.Where(x => x.RoomId == room.RoomId).ToListAsync();
+                var external = await db.PromoExternalContents.Where(x => x.RoomId == room.RoomId).ToListAsync();
+                var tags = TryDeserializeTags(room.Tags) ?? new object[0];
+
+                var roomResponse = new
+                {
+                    room.RoomId,
+                    room.Name,
+                    room.Description,
+                    room.CreatorAccountId,
+                    room.ImageName,
+                    room.State,
+                    room.Accessibility,
+                    room.SupportsLevelVoting,
+                    room.IsRRO,
+                    room.IsDorm,
+                    room.CloningAllowed,
+                    room.SupportsVRLow,
+                    room.SupportsQuest2,
+                    room.SupportsMobile,
+                    room.SupportsScreens,
+                    room.SupportsWalkVR,
+                    room.SupportsTeleportVR,
+                    room.SupportsJuniors,
+                    room.MinLevel,
+                    room.WarningMask,
+                    room.CustomWarning,
+                    room.DisableMicAutoMute,
+                    room.DisableRoomComments,
+                    room.EncryptVoiceChat,
+                    room.CreatedAt,
+                    Stats = (object?)null,
+                    SubRooms = subRooms.Select(s => new
+                    {
+                        s.SubRoomId,
+                        s.RoomId,
+                        s.Name,
+                        s.DataBlob,
+                        s.IsSandbox,
+                        s.MaxPlayers,
+                        s.Accessibility,
+                        s.UnitySceneId,
+                        s.DataSavedAt
+                    }),
+                    Roles = roles.Select(r => new
+                    {
+                        r.AccountId,
+                        r.Role,
+                        r.InvitedRole
+                    }),
+                    LoadScreens = loadScreens.Select(ls => new
+                    {
+                        ls.ImageUrl,
+                        ls.Tooltip,
+                        ls.IsThumbnail
+                    }),
+                    PromoImages = promoImages.Select(pi => new
+                    {
+                        pi.ImageUrl,
+                        pi.Tooltip,
+                        pi.SortOrder
+                    }),
+                    PromoExternalContent = external.Select(ec => new
+                    {
+                        ec.Type,
+                        ec.Url,
+                        ec.Tooltip
+                    }),
+                    Tags = tags
+                };
+                results.Add(roomResponse);
+            }
+
+            var response = new
+            {
+                Results = results,
+                TotalResults = results.Count
+            };
+
+            return Results.Json(response);
+        });
+
         app.MapGet("/roomserver/rooms/createdby/me", async (HttpRequest request, AppDbContext db) =>
         {
             // TODO ADD FUNCTIONALITY
@@ -782,6 +1094,8 @@ public class APIService
             var external = true
                 ? await db.PromoExternalContents.Where(x => x.RoomId == room.RoomId).ToListAsync()
                 : new List<PromoExternalContent>();
+
+            var tags = TryDeserializeTags(room.Tags) ?? new object[0];
 
             var response = new
             {
@@ -865,9 +1179,7 @@ public class APIService
                     e.Tooltip
                 }).ToList(),
 
-                Tags = string.IsNullOrEmpty(room.Tags)
-                    ? new string[0]
-                    : System.Text.Json.JsonSerializer.Deserialize<string[]>(room.Tags)
+                Tags = tags
             };
 
             return Results.Json(response);
@@ -877,6 +1189,11 @@ public class APIService
             var json = File.ReadAllText("JSON/namedimages.json");
             return Results.Content(json, "application/json");
         });
+        app.MapPost("/api/objectives/v1/updateobjective", async (HttpRequest request, AppDbContext db) =>
+        {
+            // TODO: implement saving daily
+            return Results.Ok();
+        });
         app.MapPost("/api/PlayerReporting/v1/hile", async (HttpRequest request, AppDbContext db) =>
         {
             // stops crashing the game due to bepinex winhttp.dll (or melonloader version.dll)
@@ -884,16 +1201,606 @@ public class APIService
         });
         app.MapGet("/api/storefronts/v3/giftdropstore/300", async (HttpRequest request, AppDbContext db) =>
         {
-            // TODO ADD FUNCTIONALITY
-            var json = File.ReadAllText("JSON/cafestorefront.json");
-            return Results.Content(json, "application/json");
+            var storefronts = await storefrontService.GetStorefrontsAsync();
+            var storefront = storefronts.FirstOrDefault(s => s.StorefrontType == 300 && s.Name == "rc_cafe_storefront");
+            if (storefront == null)
+            {
+                var json = File.ReadAllText("JSON/cafestorefront.json");
+                return Results.Content(json, "application/json");
+            }
+            var storeItems = storefront.Items.Select(item => new
+            {
+                item.Id,
+                item.StorefrontId,
+                item.PurchasableItemId,
+                item.Type,
+                item.IsFeatured,
+                item.NewUntil,
+                GiftDrops = item.GiftDrops.Select(gd => new
+                {
+                    gd.Id,
+                    gd.StorefrontItemId,
+                    gd.GiftDropId,
+                    gd.FriendlyName,
+                    gd.Tooltip,
+                    gd.ConsumableItemDesc,
+                    gd.AvatarItemDesc,
+                    gd.AvatarItemType,
+                    gd.EquipmentPrefabName,
+                    gd.EquipmentModificationGuid,
+                    gd.IsQuery,
+                    gd.Unique,
+                    gd.SubscribersOnly,
+                    gd.Level,
+                    gd.Rarity,
+                    gd.CurrencyType,
+                    gd.Currency,
+                    gd.Context,
+                    gd.ItemSetId,
+                    gd.ItemSetFriendlyName
+                }).ToList(),
+                Prices = item.Prices.Select(p => new
+                {
+                    p.Id,
+                    p.StorefrontItemId,
+                    p.CurrencyType,
+                    p.Price
+                }).ToList()
+            }).ToList();
+            var response = new { storefront.Id, storefront.Name, storefront.StorefrontType, storefront.NextUpdate, StoreItems = storeItems };
+            return Results.Ok(response);
         });
         app.MapGet("/api/storefronts/v3/giftdropstore/2", async (HttpRequest request, AppDbContext db) =>
         {
-            // TODO ADD FUNCTIONALITY
-            var json = File.ReadAllText("JSON/storefront12.json");
+            var storefronts = await storefrontService.GetStorefrontsAsync();
+            var storefront = storefronts.FirstOrDefault(s => s.StorefrontType == 2 && s.Name == "rec_center_store");
+            if (storefront == null)
+            {
+                var json = File.ReadAllText("JSON/storefront12.json");
+                return Results.Content(json, "application/json");
+            }
+            var storeItems = storefront.Items.Select(item => new
+            {
+                item.Id,
+                item.StorefrontId,
+                item.PurchasableItemId,
+                item.Type,
+                item.IsFeatured,
+                item.NewUntil,
+                GiftDrops = item.GiftDrops.Select(gd => new
+                {
+                    gd.Id,
+                    gd.StorefrontItemId,
+                    gd.GiftDropId,
+                    gd.FriendlyName,
+                    gd.Tooltip,
+                    gd.ConsumableItemDesc,
+                    gd.AvatarItemDesc,
+                    gd.AvatarItemType,
+                    gd.EquipmentPrefabName,
+                    gd.EquipmentModificationGuid,
+                    gd.IsQuery,
+                    gd.Unique,
+                    gd.SubscribersOnly,
+                    gd.Level,
+                    gd.Rarity,
+                    gd.CurrencyType,
+                    gd.Currency,
+                    gd.Context,
+                    gd.ItemSetId,
+                    gd.ItemSetFriendlyName
+                }).ToList(),
+                Prices = item.Prices.Select(p => new
+                {
+                    p.Id,
+                    p.StorefrontItemId,
+                    p.CurrencyType,
+                    p.Price
+                }).ToList()
+            }).ToList();
+            var response = new { storefront.Id, storefront.Name, storefront.StorefrontType, storefront.NextUpdate, StoreItems = storeItems };
+            return Results.Ok(response);
+        });
+        app.MapPost("/api/storefronts/v2/buyItem", async (HttpRequest request, BuyItemRequest buyRequest, AppDbContext db, JwtTokenService jwtService) =>
+        {
+            try
+            {
+                var authHeader = request.Headers.Authorization.ToString();
+            
+                if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                    return Results.Unauthorized();
+
+                var token = authHeader.Substring("Bearer ".Length);
+                var accountId = jwtService.ValidateAndGetAccountId(token);
+
+                if (string.IsNullOrEmpty(accountId) || !int.TryParse(accountId.AsSpan(), out var id))
+                    return Results.Unauthorized();
+
+                var storefrontItem = await db.StorefrontItems
+                    .Include(si => si.Prices)
+                    .Include(si => si.GiftDrops)
+                    .FirstOrDefaultAsync(si => si.PurchasableItemId == buyRequest.PurchasableItemId);
+
+                if (storefrontItem == null)
+                {
+                    return Results.NotFound(new { error = "Item not found" });
+                }
+
+                var price = storefrontItem.Prices.FirstOrDefault(p => p.CurrencyType == buyRequest.CurrencyType);
+                if (price == null)
+                {
+                    return Results.BadRequest(new { error = "Currency type not available for this item" });
+                }
+
+                var tokenBalance = await db.TokenBalances
+                    .FirstOrDefaultAsync(tb => tb.Id == id && 
+                                              tb.CurrencyType == buyRequest.CurrencyType && 
+                                              tb.BalanceType == -1);
+
+                if (tokenBalance == null)
+                {
+                    return Results.BadRequest(new { error = "Account has no token balance" });
+                }
+
+                if (tokenBalance.Balance < price.Price)
+                {
+                    return Results.BadRequest(new { error = "Insufficient balance" });
+                }
+
+                tokenBalance.Balance -= price.Price;
+                db.TokenBalances.Update(tokenBalance);
+                await db.SaveChangesAsync();
+
+                // Store each gift in the database as a received gift with all properties
+                var storedGifts = new List<ReceivedGift>();
+                foreach (var giftDrop in storefrontItem.GiftDrops)
+                {
+                    var receivedGift = new ReceivedGift
+                    {
+                        ReceiverAccountId = id,
+                        FromPlayerId = null,
+                        Message = "A gift for you <3",
+                        ConsumableItemDesc = giftDrop.ConsumableItemDesc ?? string.Empty,
+                        AvatarItemDesc = giftDrop.AvatarItemDesc ?? string.Empty,
+                        FriendlyName = giftDrop.FriendlyName ?? string.Empty,
+                        AvatarItemType = giftDrop.AvatarItemType,
+                        EquipmentPrefabName = giftDrop.EquipmentPrefabName ?? string.Empty,
+                        EquipmentModificationGuid = giftDrop.EquipmentModificationGuid ?? string.Empty,
+                        CurrencyType = giftDrop.CurrencyType,
+                        Currency = giftDrop.Currency,
+                        Xp = 0,
+                        Level = giftDrop.Level,
+                        Platform = -1,
+                        PlatformsToSpawnOn = -1,
+                        BalanceType = 0,
+                        GiftContext = giftDrop.Context,
+                        GiftRarity = giftDrop.Rarity,
+                        ReceivedAt = DateTime.UtcNow,
+                        IsConsumed = false
+                    };
+                    
+                    db.ReceivedGifts.Add(receivedGift);
+                    storedGifts.Add(receivedGift);
+                }
+                await db.SaveChangesAsync();
+
+                // Build the response with stored gift IDs
+                var giftData = storedGifts.Select(rg => new GiftData
+                {
+                    Id = rg.Id,
+                    FromPlayerId = null,
+                    ConsumableItemDesc = rg.ConsumableItemDesc,
+                    AvatarItemDesc = rg.AvatarItemDesc,
+                    FriendlyName = rg.FriendlyName,
+                    AvatarItemType = rg.AvatarItemType,
+                    EquipmentPrefabName = rg.EquipmentPrefabName,
+                    EquipmentModificationGuid = rg.EquipmentModificationGuid,
+                    CurrencyType = rg.CurrencyType,
+                    Currency = rg.Currency,
+                    Xp = rg.Xp,
+                    Level = rg.Level,
+                    Platform = rg.Platform,
+                    PlatformsToSpawnOn = rg.PlatformsToSpawnOn,
+                    BalanceType = rg.BalanceType,
+                    GiftContext = rg.GiftContext,
+                    GiftRarity = rg.GiftRarity,
+                    Message = rg.Message
+                }).ToList();
+
+                var balanceUpdate = new BalanceUpdate
+                {
+                    UpdateResponse = 0,
+                    Data = giftData
+                };
+
+                var response = new BuyItemResponse
+                {
+                    BalanceUpdates = new List<BalanceUpdate> { balanceUpdate },
+                    Balance = tokenBalance.Balance,
+                    CurrencyType = buyRequest.CurrencyType,
+                    BalanceType = -1,
+                    Platform = -1
+                };
+
+                // Send notification for purchase
+                try
+                {
+                    var hubContext = app.Services.GetService<IHubContext>();
+                    if (hubContext != null)
+                    {
+                        var purchaseNotification = notificationService.CreateNotification(
+                            PushNotificationId.StorefrontBalancePurchase,
+                            id: storefrontItem.Id,
+                            toAccountId: id,
+                            data: new Dictionary<string, object>
+                            {
+                                { "ItemId", buyRequest.PurchasableItemId },
+                                { "Price", price.Price },
+                                { "CurrencyType", buyRequest.CurrencyType },
+                                { "NewBalance", tokenBalance.Balance }
+                            }
+                        );
+                        await notificationService.SendNotificationToPlayer(null, hubContext, id, purchaseNotification);
+                    }
+                }
+                catch { }
+
+                return Results.Ok(response);
+            }
+            catch (Exception ex)
+            {
+                return Results.Problem($"Error processing purchase: {ex.Message}");
+            }
+        });
+
+        app.MapPost("/api/avatar/v2/gifts/generate", async (HttpRequest request, AppDbContext db, JwtTokenService jwtService) =>
+        {
+            try
+            {
+                var authHeader = request.Headers.Authorization.ToString();
+                if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                    return Results.Unauthorized();
+
+                var token = authHeader.Substring("Bearer ".Length);
+                var accountId = jwtService.ValidateAndGetAccountId(token);
+
+                if (string.IsNullOrEmpty(accountId) || !int.TryParse(accountId.AsSpan(), out var id))
+                    return Results.Unauthorized();
+
+                request.EnableBuffering();
+                request.Body.Position = 0;
+                using var reader = new StreamReader(request.Body);
+                var body = await reader.ReadToEndAsync();
+                
+                int giftContext = 0;
+                bool isGameGift = false;
+                string message = "";
+                int xp = 0;
+                
+                if (!string.IsNullOrWhiteSpace(body))
+                {
+                    foreach (var pair in body.Split('&'))
+                    {
+                        var keyValue = pair.Split('=');
+                        if (keyValue.Length == 2)
+                        {
+                            var key = Uri.UnescapeDataString(keyValue[0]);
+                            var value = Uri.UnescapeDataString(keyValue[1]);
+
+                            if (key == "GiftContext" && int.TryParse(value, out var context))
+                                giftContext = context;
+                            else if (key == "IsGameGift")
+                                isGameGift = value.Equals("true", StringComparison.OrdinalIgnoreCase);
+                            else if (key == "Message")
+                                message = value;
+                            else if (key == "Xp" && int.TryParse(value, out var xpVal))
+                                xp = xpVal;
+                        }
+                    }
+                }
+
+                // Get all earnable rewards for this context
+                var earnableRewards = await db.EarnableRewards
+                    .Where(er => er.RewardContext == giftContext)
+                    .ToListAsync();
+
+                var random = new Random();
+                string avatarItemDesc = "";
+                string friendlyName = "";
+                int avatarItemType = 0;
+                int currencyType = 0;
+                int currency = 0;
+                int giftRarity = 0;
+                string consumableItemDesc = "";
+
+                // 60/40 roll - 60% earnable item, 40% tokens
+                bool isEarnableItem = random.Next(0, 100) < 60;
+
+                if (isEarnableItem && earnableRewards.Any())
+                {
+                    // Get rewards that are avatar items (have avatarItemDesc set)
+                    var avatarRewards = earnableRewards.Where(er => !string.IsNullOrEmpty(er.AvatarItemDesc)).ToList();
+
+                    if (avatarRewards.Any())
+                    {
+                        // Get all avatar items the player currently owns
+                        var ownedAvatarItems = await db.AvatarItems
+                            .Where(ai => ai.OwnerAccountId == id)
+                            .Select(ai => ai.AvatarItemDesc)
+                            .ToListAsync();
+
+                        // Filter to rewards the player doesn't own
+                        var unownedRewards = avatarRewards
+                            .Where(ar => !ownedAvatarItems.Contains(ar.AvatarItemDesc))
+                            .ToList();
+
+                        if (unownedRewards.Any())
+                        {
+                            // Randomly select one of the unowned rewards
+                            var selectedReward = unownedRewards[random.Next(unownedRewards.Count)];
+                            avatarItemDesc = selectedReward.AvatarItemDesc;
+                            friendlyName = selectedReward.FriendlyName;
+                            avatarItemType = selectedReward.AvatarItemType;
+                            giftRarity = selectedReward.GiftRarity;
+                        }
+                        else
+                        {
+                            // Player owns all avatar items, give token box instead
+                            isEarnableItem = false;
+                        }
+                    }
+                    else
+                    {
+                        // No avatar rewards, give token box instead
+                        isEarnableItem = false;
+                    }
+                }
+
+                // If not earnable item or player owns all items, generate a token box
+                if (!isEarnableItem)
+                {
+                    int[] tokenAmounts = { 10, 25, 50, 100, 250, 500 };
+                    currency = tokenAmounts[random.Next(tokenAmounts.Length)];
+                    currencyType = 2;
+                    consumableItemDesc = $"TokenBox_{currency}";
+                    giftRarity = 20;
+                }
+                
+                // Create the received gift record
+                var receivedGift = new ReceivedGift
+                {
+                    ReceiverAccountId = id,
+                    FromPlayerId = null,
+                    Message = message,
+                    ConsumableItemDesc = consumableItemDesc,
+                    AvatarItemDesc = avatarItemDesc,
+                    FriendlyName = friendlyName,
+                    AvatarItemType = avatarItemType,
+                    EquipmentPrefabName = "",
+                    EquipmentModificationGuid = "",
+                    CurrencyType = currencyType,
+                    Currency = currency,
+                    Xp = xp,
+                    Level = 0,
+                    Platform = -1,
+                    PlatformsToSpawnOn = -1,
+                    BalanceType = 0,
+                    GiftContext = giftContext,
+                    GiftRarity = giftRarity,
+                    ReceivedAt = DateTime.UtcNow,
+                    IsConsumed = false
+                };
+                
+                db.ReceivedGifts.Add(receivedGift);
+                await db.SaveChangesAsync();
+
+                var giftData = new
+                {
+                    Id = receivedGift.Id,
+                    FromPlayerId = (object?)null,
+                    ConsumableItemDesc = consumableItemDesc,
+                    AvatarItemDesc = avatarItemDesc,
+                    FriendlyName = friendlyName,
+                    AvatarItemType = avatarItemType,
+                    EquipmentPrefabName = "",
+                    EquipmentModificationGuid = "",
+                    CurrencyType = currencyType,
+                    Currency = currency,
+                    Xp = xp,
+                    Level = 0,
+                    Platform = -1,
+                    PlatformsToSpawnOn = -1,
+                    BalanceType = 0,
+                    GiftContext = giftContext,
+                    GiftRarity = giftRarity,
+                    Message = message
+                };
+
+                return Results.Ok(giftData);
+            }
+            catch (Exception ex)
+            {
+                return Results.Problem($"Error generating gift: {ex.Message}");
+            }
+        });
+
+        app.MapPost("/api/avatar/v2/gifts/consume/", async (HttpRequest request, AppDbContext db, JwtTokenService jwtService) =>
+        {
+            try
+            {
+                var authHeader = request.Headers.Authorization.ToString();
+                if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                    return Results.Unauthorized();
+
+                var token = authHeader.Substring("Bearer ".Length);
+                var accountId = jwtService.ValidateAndGetAccountId(token);
+
+                if (string.IsNullOrEmpty(accountId) || !int.TryParse(accountId.AsSpan(), out var id))
+                    return Results.Unauthorized();
+
+                // Parse form data
+                request.EnableBuffering();
+                request.Body.Position = 0;
+                using var reader = new StreamReader(request.Body);
+                var body = await reader.ReadToEndAsync();
+                
+                var giftId = 0;
+                var unlockedLevel = 0;
+                
+                if (!string.IsNullOrWhiteSpace(body))
+                {
+                    foreach (var pair in body.Split('&'))
+                    {
+                        var keyValue = pair.Split('=');
+                        if (keyValue.Length == 2)
+                        {
+                            if (keyValue[0] == "Id")
+                                int.TryParse(Uri.UnescapeDataString(keyValue[1]), out giftId);
+                            else if (keyValue[0] == "UnlockedLevel")
+                                int.TryParse(Uri.UnescapeDataString(keyValue[1]), out unlockedLevel);
+                        }
+                    }
+                }
+
+                if (giftId == 0)
+                {
+                    return Results.BadRequest(new { success = false, error = "Invalid gift ID" });
+                }
+
+                // Look for the ReceivedGift
+                var receivedGift = await db.ReceivedGifts
+                    .FirstOrDefaultAsync(rg => rg.Id == giftId && rg.ReceiverAccountId == id);
+
+                if (receivedGift == null)
+                {
+                    return Results.NotFound(new { success = false, error = "Gift not found" });
+                }
+
+                // Process the gift based on its properties
+                if (!string.IsNullOrEmpty(receivedGift.ConsumableItemDesc))
+                {
+                    var existingConsumable = await db.ConsumableItems
+                        .FirstOrDefaultAsync(c => c.OwnerAccountId == id && c.ConsumableItemDesc == receivedGift.ConsumableItemDesc);
+
+                    if (existingConsumable == null)
+                    {
+                        var newConsumable = new ConsumableItem
+                        {
+                            OwnerAccountId = id,
+                            Ids = new List<int> { giftId },
+                            CreatedAts = new List<DateTime> { DateTime.UtcNow },
+                            ConsumableItemDesc = receivedGift.ConsumableItemDesc,
+                            Count = 1,
+                            InitialCount = 1,
+                            IsActive = false,
+                            ActiveDurationMinutes = 0,
+                            IsTransferable = false
+                        };
+                        db.ConsumableItems.Add(newConsumable);
+                    }
+                    else
+                    {
+                        existingConsumable.Ids.Add(giftId);
+                        existingConsumable.CreatedAts.Add(DateTime.UtcNow);
+                        existingConsumable.Count += 1;
+                        db.ConsumableItems.Update(existingConsumable);
+                    }
+                }
+
+                if (!string.IsNullOrEmpty(receivedGift.AvatarItemDesc))
+                {
+                    var avatarItem = new AvatarItem
+                    {
+                        OwnerAccountId = id,
+                        AvatarItemDesc = receivedGift.AvatarItemDesc,
+                        FriendlyName = receivedGift.FriendlyName ?? ""
+                    };
+                    db.AvatarItems.Add(avatarItem);
+                }
+
+                // Mark the gift as consumed
+                receivedGift.IsConsumed = true;
+                receivedGift.ConsumedAt = DateTime.UtcNow;
+                db.ReceivedGifts.Update(receivedGift);
+
+                await db.SaveChangesAsync();
+
+                // Send notifications based on what was added
+                try
+                {
+                    var hubContext = app.Services.GetService<IHubContext>();
+                    if (hubContext != null)
+                    {
+                        if (!string.IsNullOrEmpty(receivedGift.ConsumableItemDesc))
+                        {
+                            var consumableNotification = notificationService.CreateNotification(
+                                PushNotificationId.ConsumableMappingAdded,
+                                id: giftId,
+                                toAccountId: id,
+                                data: new Dictionary<string, object>
+                                {
+                                    { "Id", (long)giftId },
+                                    { "ConsumableItemDesc", receivedGift.ConsumableItemDesc },
+                                    { "PlatformMask", -1 },
+                                    { "CreatedAt", DateTime.UtcNow },
+                                    { "Count", 1 },
+                                    { "InitialCount", 1 },
+                                    { "UnlockedLevel", 0 },
+                                    { "IsActive", false },
+                                    { "ActiveDurationMinutes", null }
+                                }
+                            );
+                            await notificationService.SendNotificationToPlayer(null, hubContext, id, consumableNotification);
+                        }
+                    }
+                }
+                catch { }
+
+                return Results.Ok(new { success = true });
+            }
+            catch (Exception ex)
+            {
+                return Results.Problem($"Error consuming gift: {ex.Message}");
+            }
+        });
+        app.MapGet("/api/rooms/v1/filters", async (HttpRequest request, AppDbContext db) =>
+        {
+            var json = File.ReadAllText("JSON/roomfilters.json");
             return Results.Content(json, "application/json");
         });
+        app.MapGet("/roomserver/rooms/{id}/interactionby/me", async (HttpRequest request, AppDbContext db, string id) =>
+        {
+            // TODO: implement
+            return Results.Content("{\"Cheered\":false,\"Favorited\":false}", "application/json");
+        });
+    }
+
+    private static object[]? TryDeserializeTags(string json)
+    {
+        try
+        {
+            var tags = System.Text.Json.JsonSerializer.Deserialize<RoomTag[]>(json);
+            if (tags != null)
+                return tags.Cast<object>().ToArray();
+            
+            return null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static RoomTag[]? TryDeserializeRoomTags(string json)
+    {
+        try
+        {
+            return System.Text.Json.JsonSerializer.Deserialize<RoomTag[]>(json);
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private static async Task<List<int>> ParseFormIds(HttpRequest httpRequest)

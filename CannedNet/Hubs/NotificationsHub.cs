@@ -6,10 +6,11 @@ namespace CannedNet.Hubs;
 
 public class NotificationsHub : Hub
 {
-    private static NotificationService _notificationService = new();
+    private readonly NotificationService _notificationService;
 
-    public NotificationsHub()
+    public NotificationsHub(NotificationService notificationService)
     {
+        _notificationService = notificationService;
     }
 
     public override async Task OnConnectedAsync()
@@ -35,7 +36,7 @@ public class NotificationsHub : Hub
         return Task.FromResult(_notificationService.GetSubscribedPlayers(Context.ConnectionId).ToHashSet());
     }
 
-    public static NotificationService GetNotificationService()
+    public NotificationService GetNotificationService()
     {
         return _notificationService;
     }
