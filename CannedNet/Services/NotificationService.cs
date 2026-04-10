@@ -205,55 +205,41 @@ public class NotificationService
 
     private static async Task SendToConnection(IHubContext<NotificationsHub> hubContext, string connectionId, NotificationMessage notification)
     {
-        var notificationData = BuildNotificationObject(notification);
         try
         {
+            var msgData = new Dictionary<string, object>();
+            if (notification.Data != null)
+            {
+                foreach (var kvp in notification.Data)
+                {
+                    if (kvp.Value == null)
+                        continue;
+
+                    if (kvp.Value is DateTime dt)
+                    {
+                        msgData[kvp.Key] = dt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
+                    }
+                    else
+                    {
+                        msgData[kvp.Key] = kvp.Value;
+                    }
+                }
+            }
+
+            var notificationData = new
+            {
+                Id = (int?)notification.NotificationType ?? 0,
+                Msg = msgData
+            };
+            
             var json = JsonSerializer.Serialize(notificationData);
-            System.Console.WriteLine($"[NotificationService] Sending notification to {connectionId}: {json}");
+            Console.WriteLine($"[NotificationService] Sending notification to {connectionId}: {json}");
+            
+            await hubContext.Clients.Client(connectionId).SendAsync("Notification", json);
         }
         catch (Exception ex)
         {
-            System.Console.WriteLine($"[NotificationService] Error serializing notification: {ex.Message}");
+            Console.WriteLine($"[NotificationService] Error sending notification: {ex.Message}");
         }
-        await hubContext.Clients.Client(connectionId).SendAsync("Notification", notificationData);
-    }
-
-    private static Dictionary<string, object?> BuildNotificationObject(NotificationMessage notification)
-    {
-        var dict = new Dictionary<string, object?>
-        {
-            { "notificationId", notification.NotificationId ?? "" },
-            { "notificationType", (int?)notification.NotificationType ?? 0 },
-        };
-
-        // Only add optional fields if they have values
-        if (notification.Id.HasValue)
-            dict.Add("id", notification.Id.Value);
-        if (notification.FromAccountId.HasValue)
-            dict.Add("fromAccountId", notification.FromAccountId.Value);
-        if (notification.ToAccountId.HasValue)
-            dict.Add("toAccountId", notification.ToAccountId.Value);
-        if (notification.CreatedAt.HasValue)
-            dict.Add("createdAt", notification.CreatedAt.Value.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"));
-
-        // Properly serialize the data dictionary, converting DateTime objects to ISO 8601 strings
-        var serializedData = new Dictionary<string, object>();
-        if (notification.Data != null && notification.Data.Count > 0)
-        {
-            foreach (var kvp in notification.Data)
-            {
-                if (kvp.Value is DateTime dt)
-                {
-                    serializedData[kvp.Key] = dt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
-                }
-                else if (kvp.Value != null)
-                {
-                    serializedData[kvp.Key] = kvp.Value;
-                }
-            }
-        }
-
-        dict.Add("data", serializedData);
-        return dict;
     }
 }

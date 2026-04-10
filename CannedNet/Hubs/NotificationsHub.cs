@@ -50,3 +50,4 @@ public class NotificationsHub : Hub
         return Context.GetHttpContext()?.RequestServices.GetService(typeof(T)) as T;
     }
 }
+

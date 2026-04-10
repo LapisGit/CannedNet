@@ -96,12 +96,10 @@ public class MatchmakingController
             RoomInstance? instanceToUse;
             string photonRoomId;
 
-            // Check if player already has an instance in this room
             var existingInstance = await db.RoomInstances.FirstOrDefaultAsync(r => r.OwnerAccountId == id && r.roomId == roomData.RoomId);
             
             if (existingInstance != null)
             {
-                // Player already has an instance in this room, update it
                 photonRoomId = existingInstance.photonRoomId ?? Guid.NewGuid().ToString();
                 existingInstance.roomInstanceId = existingInstance.Id;
                 existingInstance.roomId = roomData.RoomId;
@@ -156,7 +154,7 @@ public class MatchmakingController
                     name = roomData.Name,
                     maxCapacity = maxCapacity,
                     isFull = false,
-                    isPrivate = roomData.IsDorm || roomData.RoomId == 1, // Private if it's a dorm or special room
+                    isPrivate = roomData.IsDorm || roomData.RoomId == 1,
                     isInProgress = false,
                     EncryptVoiceChat = roomData.EncryptVoiceChat
                 };

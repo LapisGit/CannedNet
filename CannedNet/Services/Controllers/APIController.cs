@@ -21,6 +21,8 @@ public class APIController
         var storefrontService = app.Services.GetRequiredService<StorefrontFillService>();
         var notificationService = app.Services.GetRequiredService<NotificationService>();
 
+        MapImageEndpoints(app);
+
         app.MapGet("/api/config/v1/amplitude", () => Results.Ok(new
         {
             AmplitudeKey = "a",
@@ -1371,11 +1373,11 @@ public class APIController
                     var receivedGift = new ReceivedGift
                     {
                         ReceiverAccountId = receiverAccountId,
-                        FromPlayerId = senderPlayerId,
+                        FromPlayerId = 1,
                         Message = buyRequest.Gift?.Message ?? "A gift for you <3",
                         ConsumableItemDesc = giftDrop.ConsumableItemDesc ?? string.Empty,
                         AvatarItemDesc = giftDrop.AvatarItemDesc ?? string.Empty,
-                        FriendlyName = giftDrop.FriendlyName ?? string.Empty,
+                       // FriendlyName = giftDrop.FriendlyName ?? string.Empty,
                         AvatarItemType = giftDrop.AvatarItemType,
                         EquipmentPrefabName = giftDrop.EquipmentPrefabName ?? string.Empty,
                         EquipmentModificationGuid = giftDrop.EquipmentModificationGuid ?? string.Empty,
@@ -1442,10 +1444,10 @@ public class APIController
                         toAccountId: id,
                         data: new Dictionary<string, object>
                         {
-                            { "ItemId", buyRequest.PurchasableItemId },
-                            { "Price", price.Price },
-                            { "CurrencyType", buyRequest.CurrencyType },
-                            { "NewBalance", tokenBalance.Balance }
+                            { "BalanceAddType", 1400 },
+                            { "Delta", -price.Price },
+                            { "Balance", tokenBalance.Balance },
+                            { "CurrencyType", buyRequest.CurrencyType }
                         }
                     );
                     await notificationService.SendNotificationToPlayer(id, purchaseNotification);
@@ -1570,7 +1572,7 @@ public class APIController
                 var receivedGift = new ReceivedGift
                 {
                     ReceiverAccountId = id,
-                    FromPlayerId = null,
+                    FromPlayerId = 1,
                     Message = message,
                     ConsumableItemDesc = consumableItemDesc,
                     AvatarItemDesc = avatarItemDesc,
@@ -1597,7 +1599,7 @@ public class APIController
                 var giftData = new
                 {
                     Id = receivedGift.Id,
-                    FromPlayerId = (object?)null,
+                    FromPlayerId = 1,
                     ConsumableItemDesc = consumableItemDesc,
                     AvatarItemDesc = avatarItemDesc,
                     FriendlyName = friendlyName,
@@ -1746,39 +1748,7 @@ public class APIController
 
                 await db.SaveChangesAsync();
 
-                try
-                {
-                    if (!string.IsNullOrEmpty(receivedGift.ConsumableItemDesc))
-                    {
-                        var consumableNotification = notificationService.CreateNotification(
-                            PushNotificationId.ConsumableMappingAdded,
-                            id: giftId,
-                            toAccountId: id,
-                            data: new Dictionary<string, object>
-                            {
-                                { "Id", giftId },
-                                { "ConsumableType", "JfnVXFmilU6ysv-VbTAe3A" },
-                                { "PlatformMask", 4294967295 },
-                                { "Count", 1 },
-                                { "InitialCount", 1 },
-                                { "UnlockedLevel", 0 },
-                                { "CreatedAt", DateTime.UtcNow },
-                                { "IsActive", false },
-                                { "ActiveDurationMinutes", null },
-                                { "Category", 0 },
-                                { "IsPlatformLocked", false }
-                            }
-                        );
-                        await notificationService.SendNotificationToPlayer(id, consumableNotification);
-                    }
-                }
-                catch (Exception notifEx)
-                {
-                    // Log the error but don't fail the gift consumption
-                    Console.WriteLine($"Error sending notification: {notifEx.Message}");
-                }
-
-                return Results.Ok(new { success = true });
+                return Results.Ok(RecNetResult.Ok());
             }
             catch (Exception ex)
             {
@@ -1854,5 +1824,59 @@ public class APIController
         }
         
         return ids;
+    }
+
+    private static readonly string ImagesDir;
+    static APIController()
+    {
+        var dir = "Images";
+        if (!Directory.Exists(dir))
+        {
+            Directory.CreateDirectory(dir);
+        }
+        ImagesDir = dir;
+    }
+
+    private void MapImageEndpoints(WebApplication app)
+    {
+        app.MapPost("/api/images/v4/uploadsaved", async (HttpContext context) =>
+        {
+            try
+            {
+                var form = await context.Request.ReadFormAsync();
+                var file = form.Files.FirstOrDefault();
+
+                if (file == null)
+                {
+                    return Results.BadRequest(new { error = "No file found in request" });
+                }
+
+                var imageId = Guid.NewGuid().ToString("N");
+                var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+                
+                var validExtensions = new[] { ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp" };
+                if (string.IsNullOrEmpty(extension) || !validExtensions.Contains(extension))
+                {
+                    extension = ".png";
+                }
+
+                var savedFileName = imageId + extension;
+                var filePath = Path.Combine(ImagesDir, savedFileName);
+
+                using (var fileStream = File.Create(filePath))
+                {
+                    await file.CopyToAsync(fileStream);
+                }
+
+                return Results.Ok(new
+                {
+                    ImageName = savedFileName
+                });
+            }
+            catch (Exception ex)
+            {
+                return Results.Problem($"Error uploading image: {ex.Message}");
+            }
+        });
     }
 }
