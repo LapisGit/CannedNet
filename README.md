@@ -7,7 +7,6 @@ Lots of data and stuff like the photon servers listed here are Radium's servers,
 
 TODO:
 
-- Fix notifications - [Issue #1](https://github.com/LapisGit/CannedNet/issues/1)
 - Player PFP changing
 - Outfit saving
 - CDN server
