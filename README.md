@@ -1,6 +1,8 @@
 # CannedNet
 A RecNet API Reimplementation written in C#
 
+Currently supported version: 2021-01-29
+
 Lots of data and stuff like the photon servers listed here are Radium's servers, these can be changed safely, I'm just currently using it for testing.
 
 ~~Doesn't really matter as with this current state you can't login fully~~ WE GOT LOGGED IN!!!!
@@ -10,11 +12,19 @@ TODO:
 - Player PFP changing
 - Outfit saving
 - CDN server
-- Play tab + other rooms (kinda?? play tab is very buggy)
+- Play tab
 - Clubs Server
 - People
 - Friend requests
 - Invites
+
+## Known Issues
+- Play tab will randomly try to use the new UI split-test randomly, I want to try and prevent this as the endpoints are a bit weird, and I'd rather not have the inconsisency between sessions.
+- All presences will say [VERSION MISMATCH]
+- Even if a player logs out, it will permenatly say they are online.
+- Image server returns an image, but improperly as the game doesn't handle the image and display it.
+- You are only able to go to "private" instances of rooms
+- You get matchmaked into a DormRoom that is not yours if there are multiple users (fixed in next commit from LapisGit)
 
 ## Why?
 
