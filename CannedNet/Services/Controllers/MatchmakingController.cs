@@ -33,19 +33,43 @@ public class MatchmakingController
                 return Results.Content(json, "application/json");
             }
 
-            var result = new List<Account>
+            // Get the player's active room instance
+            var roomInstance = await db.RoomInstances
+                .Where(r => r.OwnerAccountId == accountId)
+                .OrderByDescending(r => r.Id)
+                .FirstOrDefaultAsync();
+
+            var result = new List<object>
             {
-                new Account
+                new
                 {
-                    AccountId = account.AccountId,
-                    ProfileImage = account.ProfileImage ?? "hdqeamlcmatc6qzoi2ybgf0ddijjcf.jpg",
-                    IsJunior = account.IsJunior,
-                    Platforms = account.Platforms ?? 0,
-                    PersonalPronouns = account.PersonalPronouns ?? 0,
-                    IdentityFlags = account.IdentityFlags ?? 0,
-                    Username = account.Username ?? $"Player{account.AccountId}",
-                    DisplayName = account.DisplayName ?? $"Player{account.AccountId}",
-                    CreatedAt = account.CreatedAt
+                    playerId = account.AccountId,
+                    statusVisibility = 0,
+                    deviceClass = 0,
+                    vrMovementMode = 1,
+                    roomInstance = roomInstance != null ? new
+                    {
+                        roomInstanceId = roomInstance.Id > 0 ? roomInstance.Id : roomInstance.roomInstanceId,
+                        roomId = roomInstance.roomId,
+                        subRoomId = roomInstance.subRoomId,
+                        roomInstanceType = roomInstance.roomInstanceType,
+                        location = roomInstance.location,
+                        dataBlob = roomInstance.dataBlob,
+                        eventId = roomInstance.eventId,
+                        clubId = roomInstance.clubId,
+                        roomCode = roomInstance.roomCode,
+                        photonRegionId = roomInstance.photonRegionId,
+                        photonRoomId = roomInstance.photonRoomId,
+                        name = roomInstance.name,
+                        maxCapacity = roomInstance.maxCapacity,
+                        isFull = roomInstance.isFull,
+                        isPrivate = roomInstance.isPrivate,
+                        isInProgress = roomInstance.isInProgress,
+                        EncryptVoiceChat = roomInstance.EncryptVoiceChat
+                    } : (object?)null,
+                    isOnline = roomInstance != null,
+                    appVersion = "",
+                    platform = account.Platforms ?? 0
                 }
             };
 
@@ -68,10 +92,24 @@ public class MatchmakingController
             if (!int.TryParse(accountId.AsSpan(), out var id))
                 return Results.Unauthorized();
             
+            request.EnableBuffering();
+            request.Body.Position = 0;
+            var form = await request.ReadFormAsync();
+            int joinMode = 0;
+            if (int.TryParse(form["JoinMode"].ToString(), out var mode))
+            {
+                joinMode = mode;
+            }
+            request.Body.Position = 0;
+            
             Room? roomData = null;
             var roomLower = room.ToLower();
             
-            if (int.TryParse(room, out var roomId))
+            if (roomLower == "dormroom")
+            {
+                roomData = await db.Rooms.FirstOrDefaultAsync(r => r.IsDorm && r.CreatorAccountId == id);
+            }
+            else if (int.TryParse(room, out var roomId))
             {
                 roomData = await db.Rooms.FirstOrDefaultAsync(r => r.RoomId == roomId);
             }
@@ -95,6 +133,8 @@ public class MatchmakingController
 
             RoomInstance? instanceToUse;
             string photonRoomId;
+            
+            bool isPrivateInstance = joinMode == 2 || roomData.IsDorm;
 
             var existingInstance = await db.RoomInstances.FirstOrDefaultAsync(r => r.OwnerAccountId == id && r.roomId == roomData.RoomId);
             
@@ -111,7 +151,7 @@ public class MatchmakingController
                 existingInstance.name = roomData.Name;
                 existingInstance.maxCapacity = maxCapacity;
                 existingInstance.isFull = false;
-                existingInstance.isPrivate = false;
+                existingInstance.isPrivate = isPrivateInstance;
                 instanceToUse = existingInstance;
             }
             else
@@ -131,15 +171,6 @@ public class MatchmakingController
                     photonRoomId = publicInstance.photonRoomId ?? Guid.NewGuid().ToString();
                 }
                 
-                if (room == "DormRoom")
-                {
-                    var playerDorm = await db.Rooms.FirstOrDefaultAsync(r => r.IsDorm && r.CreatorAccountId == id);
-                    if (playerDorm != null)
-                    {
-                        roomData.RoomId = playerDorm.RoomId;
-                    }
-                }
-                
                 instanceToUse = new RoomInstance
                 {
                     OwnerAccountId = id,
@@ -154,7 +185,7 @@ public class MatchmakingController
                     name = roomData.Name,
                     maxCapacity = maxCapacity,
                     isFull = false,
-                    isPrivate = roomData.IsDorm || roomData.RoomId == 1,
+                    isPrivate = isPrivateInstance,
                     isInProgress = false,
                     EncryptVoiceChat = roomData.EncryptVoiceChat
                 };
@@ -187,7 +218,7 @@ public class MatchmakingController
                     name = instanceToUse?.name ?? roomData.Name,
                     maxCapacity = instanceToUse?.maxCapacity ?? maxCapacity,
                     isFull = instanceToUse?.isFull ?? false,
-                    isPrivate = (roomData.IsDorm || roomData.RoomId == 1) ? true : (instanceToUse?.isPrivate ?? false),
+                    isPrivate = isPrivateInstance,
                     isInProgress = instanceToUse?.isInProgress ?? false,
                     EncryptVoiceChat = instanceToUse?.EncryptVoiceChat ?? roomData.EncryptVoiceChat
                 }

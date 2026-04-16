@@ -78,7 +78,7 @@ public class AccountsController
             var result = accounts.Select(a => new Account
             {
                 AccountId = a.AccountId,
-                ProfileImage = a.ProfileImage ?? "hdqeamlcmatc6qzoi2ybgf0ddijjcf.jpg",
+                ProfileImage = a.ProfileImage ?? "DefaultProfileImage.jpg",
                 IsJunior = a.IsJunior,
                 Platforms = a.Platforms ?? 0,
                 PersonalPronouns = a.PersonalPronouns ?? 0,
@@ -103,7 +103,7 @@ public class AccountsController
             var result = new Account
             {
                 AccountId = account.AccountId,
-                ProfileImage = account.ProfileImage ?? "hdqeamlcmatc6qzoi2ybgf0ddijjcf.jpg",
+                ProfileImage = account.ProfileImage ?? "DefaultProfileImage.jpg",
                 IsJunior = account.IsJunior,
                 Platforms = account.Platforms ?? 0,
                 PersonalPronouns = account.PersonalPronouns ?? 0,
@@ -157,7 +157,7 @@ public class AccountsController
             var account = new Account
             {
                 AccountId = accountId,
-                ProfileImage = "hdqeamlcmatc6qzoi2ybgf0ddijjcf.jpg",
+                ProfileImage = "DefaultProfileImage.jpg",
                 IsJunior = false,
                 Platforms = 0,
                 PersonalPronouns = 0,
@@ -187,6 +187,7 @@ public class AccountsController
             var maxRoomId = await db.Rooms.MaxAsync(r => (int?)r.RoomId) ?? 0;
             var maxId = await db.Rooms.MaxAsync(r => (int?)r.Id) ?? 0;
             var dormRoomId = maxRoomId + 1;
+            var dormId = maxId + 1;
             var dormRoom = new Room 
             {
                 Id = maxId + 1,
@@ -259,8 +260,6 @@ public class AccountsController
         
         app.MapPut("/account/me/displayname", async (HttpRequest request, AppDbContext db) =>
         {
-            // TODO: get what the server should actually respond with, OK fails.
-            
             var authHeader = request.Headers.Authorization.ToString();
     
             if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))

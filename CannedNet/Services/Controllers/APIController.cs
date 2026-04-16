@@ -21,8 +21,6 @@ public class APIController
         var storefrontService = app.Services.GetRequiredService<StorefrontFillService>();
         var notificationService = app.Services.GetRequiredService<NotificationService>();
 
-        MapImageEndpoints(app);
-
         app.MapGet("/api/config/v1/amplitude", () => Results.Ok(new
         {
             AmplitudeKey = "a",
@@ -616,7 +614,7 @@ public class APIController
         });
         app.MapGet("/api/storefronts/v1/p2p/betaEnabled", async (HttpRequest request, AppDbContext db) =>
         {
-            return "true";
+            return "false";
         });
         app.MapGet("/api/announcement/v1/get", async (HttpRequest request, AppDbContext db) =>
         {
@@ -1765,6 +1763,45 @@ public class APIController
             // TODO: implement
             return Results.Content("{\"Cheered\":false,\"Favorited\":false}", "application/json");
         });
+        app.MapPost("/api/images/v4/uploadsaved", async (HttpContext context) =>
+        {
+            try
+            {
+                var form = await context.Request.ReadFormAsync();
+                var file = form.Files.FirstOrDefault();
+
+                if (file == null)
+                {
+                    return Results.BadRequest(new { error = "No file found in request" });
+                }
+
+                var imageId = Guid.NewGuid().ToString("N");
+                var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+                
+                var validExtensions = new[] { ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp" };
+                if (string.IsNullOrEmpty(extension) || !validExtensions.Contains(extension))
+                {
+                    extension = ".png";
+                }
+
+                var savedFileName = imageId + extension;
+                var filePath = Path.Combine(ImagesDir, savedFileName);
+
+                using (var fileStream = File.Create(filePath))
+                {
+                    await file.CopyToAsync(fileStream);
+                }
+
+                return Results.Ok(new
+                {
+                    ImageName = savedFileName
+                });
+            }
+            catch (Exception ex)
+            {
+                return Results.Problem($"Error uploading image: {ex.Message}");
+            }
+        });
     }
 
     private static object[]? TryDeserializeTags(string json)
@@ -1835,48 +1872,5 @@ public class APIController
             Directory.CreateDirectory(dir);
         }
         ImagesDir = dir;
-    }
-
-    private void MapImageEndpoints(WebApplication app)
-    {
-        app.MapPost("/api/images/v4/uploadsaved", async (HttpContext context) =>
-        {
-            try
-            {
-                var form = await context.Request.ReadFormAsync();
-                var file = form.Files.FirstOrDefault();
-
-                if (file == null)
-                {
-                    return Results.BadRequest(new { error = "No file found in request" });
-                }
-
-                var imageId = Guid.NewGuid().ToString("N");
-                var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-                
-                var validExtensions = new[] { ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp" };
-                if (string.IsNullOrEmpty(extension) || !validExtensions.Contains(extension))
-                {
-                    extension = ".png";
-                }
-
-                var savedFileName = imageId + extension;
-                var filePath = Path.Combine(ImagesDir, savedFileName);
-
-                using (var fileStream = File.Create(filePath))
-                {
-                    await file.CopyToAsync(fileStream);
-                }
-
-                return Results.Ok(new
-                {
-                    ImageName = savedFileName
-                });
-            }
-            catch (Exception ex)
-            {
-                return Results.Problem($"Error uploading image: {ex.Message}");
-            }
-        });
     }
 }

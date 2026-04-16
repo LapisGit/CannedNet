@@ -88,5 +88,11 @@ public class AuthController
                 key = "8oQ+e+WQaOBPbEcakhqs3dwZZdOmmyDUmJSD9u4AHMY="
             });
         });
+        
+        app.MapGet("/role/developer/{id}", async (HttpRequest request, AppDbContext db, string id) =>
+                {
+                    // TODO: implement
+                    return Results.Ok(RecNetResult.Ok());
+                });
     }
 }
