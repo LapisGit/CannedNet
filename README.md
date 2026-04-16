@@ -23,8 +23,7 @@ TODO:
 - All presences will say [VERSION MISMATCH]
 - Even if a player logs out, it will permenatly say they are online.
 - Image server returns an image, but improperly as the game doesn't handle the image and display it.
-- You are only able to go to "private" instances of rooms
-- You get matchmaked into a DormRoom that is not yours if there are multiple users (fixed in next commit from LapisGit)
+- You are only able to go to private instances of rooms
 
 ## Why?
 
