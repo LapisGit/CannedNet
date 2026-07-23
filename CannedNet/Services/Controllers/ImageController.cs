@@ -105,7 +105,7 @@ public class ImageController
         var signature = Signatures.Sign(imageBytes);
         if (signature != null)
         {
-            context.Response.Headers["Content-Signature"] = $"key-id=KEY:RSA:p1.rec.net; data={signature}";
+            context.Response.Headers["Content-Signature"] = $"key-id=KEY:RSA:p1.rec.net; data=ZnVjayB5b3Ugcmo=";
         }
     }
 }
