@@ -1,18 +1,13 @@
-using CannedNet.Hubs;
-using CannedNet.Services.Infrastructure;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 
 namespace CannedNet.Services.Controllers;
 
-public class NotifyController
+[ApiController]
+public class NotifyController : ControllerBase
 {
-    public WebApplicationBuilder Initialize(string[]? args = null) => ServiceExtensions.CreateRecNetBuilder(args);
-
-    public void MapEndpoints(WebApplication app)
+    [HttpGet("/hub/v1")]
+    public void HubEndpoint()
     {
-        app.MapHub<NotificationsHub>("/hub/v1");
-
-        var hubContext = app.Services.GetRequiredService<IHubContext<NotificationsHub>>();
-        NotificationService.SetHubContext(hubContext);
     }
 }

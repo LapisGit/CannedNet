@@ -1,13 +1,13 @@
-using CannedNet.Services.Infrastructure;
+using Microsoft.AspNetCore.Mvc;
 
 namespace CannedNet.Services.Controllers;
 
-public class ChatController
+[ApiController]
+public class ChatController : ControllerBase
 {
-    public WebApplicationBuilder Initialize(string[]? args = null) => ServiceExtensions.CreateRecNetBuilder(args);
-
-    public void MapEndpoints(WebApplication app)
+    [HttpGet("/thread")]
+    public IResult Thread()
     {
-        app.MapGet("/thread", () => Results.Content("[]", "application/json"));
+        return Results.Content("[]", "application/json");
     }
 }

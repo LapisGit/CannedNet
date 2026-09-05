@@ -12,6 +12,8 @@ public class JwtTokenService
     private readonly SigningCredentials _signingCredentials;
     private const string KeyId = "7C2F041398671515B0862CB23FAF95B03";
 
+    public static RSA GetRsaInstance() => _rsa;
+
     public JwtTokenService()
     {
         _securityKey = new RsaSecurityKey(_rsa) { KeyId = KeyId };

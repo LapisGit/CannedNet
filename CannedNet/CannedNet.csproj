@@ -9,11 +9,26 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.11" />
         <PackageReference Include="SixLabors.ImageSharp" Version="2.1.8" />
-        <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.2.2" />
+        <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.19.2" />
         <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.0" />
         <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.0" />
         <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="8.0.0" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <_ContentIncludedByDefault Remove="AppConfigs\appsettings.Accounts.json" />
+      <_ContentIncludedByDefault Remove="AppConfigs\appsettings.API.json" />
+      <_ContentIncludedByDefault Remove="AppConfigs\appsettings.Auth.json" />
+      <_ContentIncludedByDefault Remove="AppConfigs\appsettings.CDN.json" />
+      <_ContentIncludedByDefault Remove="AppConfigs\appsettings.Chat.json" />
+      <_ContentIncludedByDefault Remove="AppConfigs\appsettings.Clubs.json" />
+      <_ContentIncludedByDefault Remove="AppConfigs\appsettings.Commerce.json" />
+      <_ContentIncludedByDefault Remove="AppConfigs\appsettings.Image.json" />
+      <_ContentIncludedByDefault Remove="AppConfigs\appsettings.Match.json" />
+      <_ContentIncludedByDefault Remove="AppConfigs\appsettings.Notify.json" />
+      <_ContentIncludedByDefault Remove="AppConfigs\appsettings.NS.json" />
     </ItemGroup>
 
 </Project>

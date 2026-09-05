@@ -1,18 +1,15 @@
-using CannedNet.Services.Infrastructure;
+using Microsoft.AspNetCore.Mvc;
 
 namespace CannedNet.Services.Controllers;
 
-public class NSController
+[ApiController]
+[Route("ns")]
+public class NSController : ControllerBase
 {
-    public WebApplicationBuilder Initialize(string[]? args = null) => ServiceExtensions.CreateRecNetBuilder(args);
-
-    public void MapEndpoints(WebApplication app)
+    [HttpGet]
+    public IResult Index()
     {
-        // Rec Room automatically calls this and sets the endpoints that correspond to services in the JSON file. These will be moved to the main server config once I get there.
-        app.MapGet("/", () =>
-        {
-            var json = File.ReadAllText("JSON/endpoints.json");
-            return Results.Content(json, "application/json");
-        });
+        var json = System.IO.File.ReadAllText("JSON/endpoints.json");
+        return Results.Content(json, "application/json");
     }
 }
